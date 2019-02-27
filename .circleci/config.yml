@@ -1,15 +1,13 @@
 version: 2
 
 defaults: &defaults
-  working_directory: /go/src/github.com/sylabs/scs-key-client
+  working_directory: /src
   docker:
     - image: golang:1.12
 
 jobs:
   build:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - checkout
       - run:
@@ -37,12 +35,10 @@ jobs:
       - persist_to_workspace:
           root: /
           paths:
-            - go/src/github.com/sylabs/scs-key-client/*
+            - src/*
 
   build_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -61,8 +57,6 @@ jobs:
 
   vet_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -72,8 +66,6 @@ jobs:
 
   lint_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -85,8 +77,6 @@ jobs:
 
   unit_test:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
