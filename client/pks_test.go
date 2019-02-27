@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 type MockPKSAdd struct {

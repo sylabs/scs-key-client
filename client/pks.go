@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 const (

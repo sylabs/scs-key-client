@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 type MockVersion struct {

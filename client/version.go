@@ -9,7 +9,7 @@ import (
 	"context"
 	"net/http"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 const pathVersion = "/version"
