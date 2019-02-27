@@ -17,10 +17,9 @@ import (
 	jsonresp "github.com/sylabs/json-resp"
 )
 
-// Paths used in this file.
 const (
-	PathPKSAdd    = "/pks/add"
-	PathPKSLookup = "/pks/lookup"
+	pathPKSAdd    = "/pks/add"
+	pathPKSLookup = "/pks/lookup"
 )
 
 // Operations for PKS Add.
@@ -42,7 +41,7 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	v := url.Values{}
 	v.Set("keytext", keyText)
 
-	req, err := c.newRequest(http.MethodPost, PathPKSAdd, "", strings.NewReader(v.Encode()))
+	req, err := c.newRequest(http.MethodPost, pathPKSAdd, "", strings.NewReader(v.Encode()))
 	if err != nil {
 		return err
 	}
@@ -78,7 +77,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		v.Set("x-pagetoken", pd.Token)
 	}
 
-	req, err := c.newRequest(http.MethodGet, PathPKSLookup, v.Encode(), nil)
+	req, err := c.newRequest(http.MethodGet, pathPKSLookup, v.Encode(), nil)
 	if err != nil {
 		return "", err
 	}

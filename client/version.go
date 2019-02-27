@@ -12,10 +12,7 @@ import (
 	jsonresp "github.com/sylabs/json-resp"
 )
 
-// Paths used in this file.
-const (
-	PathVersion = "/version"
-)
+const pathVersion = "/version"
 
 // VersionInfo contains version information.
 type VersionInfo struct {
@@ -25,7 +22,7 @@ type VersionInfo struct {
 // GetVersion gets version information from the Key Service. The context controls the lifetime of
 // the request.
 func (c *Client) GetVersion(ctx context.Context) (vi VersionInfo, err error) {
-	req, err := c.newRequest(http.MethodGet, PathVersion, "", nil)
+	req, err := c.newRequest(http.MethodGet, pathVersion, "", nil)
 	if err != nil {
 		return VersionInfo{}, err
 	}

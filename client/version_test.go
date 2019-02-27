@@ -28,7 +28,7 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathVersion; got != want {
+	if got, want := r.URL.Path, pathVersion; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 

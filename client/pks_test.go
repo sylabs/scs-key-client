@@ -32,7 +32,7 @@ func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathPKSAdd; got != want {
+	if got, want := r.URL.Path, pathPKSAdd; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 
@@ -121,7 +121,7 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathPKSLookup; got != want {
+	if got, want := r.URL.Path, pathPKSLookup; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 
