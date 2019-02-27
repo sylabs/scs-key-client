@@ -14,25 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
-// Paths used in this file.
 const (
-	PathPKSAdd    = "/pks/add"
-	PathPKSLookup = "/pks/lookup"
-)
-
-// Operations for PKS Add.
-const (
-	OperationGet    = "get"
-	OperationIndex  = "index"
-	OperationVIndex = "vindex"
-)
-
-// Options for PKS Add.
-const (
-	OptionMachineReadable = "mr"
+	pathPKSAdd    = "/pks/add"
+	pathPKSLookup = "/pks/lookup"
 )
 
 // PKSAdd submits an ASCII armored keyring to the Key Service, as specified in section 4 of the
@@ -42,7 +29,7 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	v := url.Values{}
 	v.Set("keytext", keyText)
 
-	req, err := c.newRequest(http.MethodPost, PathPKSAdd, "", strings.NewReader(v.Encode()))
+	req, err := c.newRequest(http.MethodPost, pathPKSAdd, "", strings.NewReader(v.Encode()))
 	if err != nil {
 		return err
 	}
@@ -60,6 +47,18 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	return nil
 }
 
+const (
+	// OperationGet is a PKSLookup operation value to perform a "get" operation.
+	OperationGet = "get"
+	// OperationIndex is a PKSLookup operation value to perform a "index" operation.
+	OperationIndex = "index"
+	// OperationVIndex is a PKSLookup operation value to perform a "vindex" operation.
+	OperationVIndex = "vindex"
+)
+
+// OptionMachineReadable is a PKSLookup options value to return machine readable output.
+const OptionMachineReadable = "mr"
+
 // PKSLookup requests data from the Key Service, as specified in section 3 of the OpenPGP HTTP
 // Keyserver Protocol (HKP) specification. The context controls the lifetime of the request.
 func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operation string, fingerprint, exact bool, options []string) (response string, err error) {
@@ -74,11 +73,11 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		v.Set("exact", "on")
 	}
 	if pd != nil {
-		v.Set("x-pagesize", strconv.Itoa(pd.size))
-		v.Set("x-pagetoken", pd.token)
+		v.Set("x-pagesize", strconv.Itoa(pd.Size))
+		v.Set("x-pagetoken", pd.Token)
 	}
 
-	req, err := c.newRequest(http.MethodGet, PathPKSLookup, v.Encode(), nil)
+	req, err := c.newRequest(http.MethodGet, pathPKSLookup, v.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +93,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 	}
 
 	if pd != nil {
-		pd.token = res.Header.Get("X-HKP-Next-Page-Token")
+		pd.Token = res.Header.Get("X-HKP-Next-Page-Token")
 	}
 
 	body, err := ioutil.ReadAll(res.Body)

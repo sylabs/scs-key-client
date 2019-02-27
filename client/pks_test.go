@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 type MockPKSAdd struct {
@@ -32,7 +32,7 @@ func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathPKSAdd; got != want {
+	if got, want := r.URL.Path, pathPKSAdd; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 
@@ -121,7 +121,7 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathPKSLookup; got != want {
+	if got, want := r.URL.Path, pathPKSLookup; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 
@@ -157,7 +157,9 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("X-HKP-Next-Page-Token", m.nextPageToken)
-	io.Copy(w, strings.NewReader(m.response))
+	if _, err := io.Copy(w, strings.NewReader(m.response)); err != nil {
+		m.t.Fatalf("failed to copy: %v", err)
+	}
 }
 
 func TestPKSLookup(t *testing.T) {
@@ -223,8 +225,8 @@ func TestPKSLookup(t *testing.T) {
 			}
 
 			pd := PageDetails{
-				token: tt.pageToken,
-				size:  tt.pageSize,
+				Token: tt.pageToken,
+				Size:  tt.pageSize,
 			}
 			r, err := c.PKSLookup(context.Background(), &pd, tt.search, tt.op, tt.fingerprint, tt.exact, tt.options)
 
@@ -232,7 +234,7 @@ func TestPKSLookup(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to do PKS lookup: %v", err)
 				}
-				if got, want := pd.token, tt.nextPageToken; got != want {
+				if got, want := pd.Token, tt.nextPageToken; got != want {
 					t.Errorf("got page token %v, want %v", got, want)
 				}
 				if got, want := r, m.response; got != want {

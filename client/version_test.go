@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	jsonresp "github.com/sylabs/json-resp"
+	"github.com/sylabs/json-resp"
 )
 
 type MockVersion struct {
@@ -28,7 +28,7 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, PathVersion; got != want {
+	if got, want := r.URL.Path, pathVersion; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 

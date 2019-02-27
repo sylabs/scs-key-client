@@ -16,11 +16,11 @@ import (
 type Config struct {
 	// BaseURL of the service (https://keys.sylabs.io is used if not supplied).
 	BaseURL string
-	// Auth token to include in the Authorization header of each request (if supplied.)
+	// Auth token to include in the Authorization header of each request (if supplied).
 	AuthToken string
-	// User agent to include in each request (if supplied.)
+	// User agent to include in each request (if supplied).
 	UserAgent string
-	// HTTPClient to use to make HTTP requests (if supplied.)
+	// HTTPClient to use to make HTTP requests (if supplied).
 	HTTPClient *http.Client
 }
 
@@ -29,10 +29,10 @@ var DefaultConfig = &Config{}
 
 // PageDetails includes pagination details.
 type PageDetails struct {
-	// Maximum number of results per page (server may ignore or return fewer.)
-	size int
-	// Token for next page (advanced with each request, empty for last page.)
-	token string
+	// Maximum number of results per page (server may ignore or return fewer).
+	Size int
+	// Token for next page (advanced with each request, empty for last page).
+	Token string
 }
 
 // Client describes the client details.
