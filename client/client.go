@@ -30,9 +30,9 @@ var DefaultConfig = &Config{}
 // PageDetails includes pagination details.
 type PageDetails struct {
 	// Maximum number of results per page (server may ignore or return fewer.)
-	size int
+	Size int
 	// Token for next page (advanced with each request, empty for last page.)
-	token string
+	Token string
 }
 
 // Client describes the client details.

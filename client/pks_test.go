@@ -223,8 +223,8 @@ func TestPKSLookup(t *testing.T) {
 			}
 
 			pd := PageDetails{
-				token: tt.pageToken,
-				size:  tt.pageSize,
+				Token: tt.pageToken,
+				Size:  tt.pageSize,
 			}
 			r, err := c.PKSLookup(context.Background(), &pd, tt.search, tt.op, tt.fingerprint, tt.exact, tt.options)
 
@@ -232,7 +232,7 @@ func TestPKSLookup(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to do PKS lookup: %v", err)
 				}
-				if got, want := pd.token, tt.nextPageToken; got != want {
+				if got, want := pd.Token, tt.nextPageToken; got != want {
 					t.Errorf("got page token %v, want %v", got, want)
 				}
 				if got, want := r, m.response; got != want {

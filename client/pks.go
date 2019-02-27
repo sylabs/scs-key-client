@@ -74,8 +74,8 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		v.Set("exact", "on")
 	}
 	if pd != nil {
-		v.Set("x-pagesize", strconv.Itoa(pd.size))
-		v.Set("x-pagetoken", pd.token)
+		v.Set("x-pagesize", strconv.Itoa(pd.Size))
+		v.Set("x-pagetoken", pd.Token)
 	}
 
 	req, err := c.newRequest(http.MethodGet, PathPKSLookup, v.Encode(), nil)
@@ -94,7 +94,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 	}
 
 	if pd != nil {
-		pd.token = res.Header.Get("X-HKP-Next-Page-Token")
+		pd.Token = res.Header.Get("X-HKP-Next-Page-Token")
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
