@@ -1,0 +1,120 @@
+version: 2
+
+defaults: &defaults
+  working_directory: /go/src/github.com/sylabs/scs-key-client
+  docker:
+    - image: golang:latest
+
+jobs:
+  build:
+    <<: *defaults
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - checkout
+      - run:
+          name: Build Source
+          command: go build ./...
+      - run:
+          name: Check Formatting
+          command: test -z $(go fmt ./...)
+      - run:
+          name: Vet Source
+          command: go vet -all ./...
+      - run:
+          name: Check for Lint
+          command: |
+            env go get -u golang.org/x/lint/golint
+            golint -set_exit_status `go list ./...`
+      - run:
+          name: Run Tests
+          command: go test -cover -race -timeout 60s ./...
+
+  get_source:
+    <<: *defaults
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /
+          paths:
+            - go/src/github.com/sylabs/scs-key-client/*
+
+  build_source:
+    <<: *defaults
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - attach_workspace:
+          at: /
+      - run:
+          name: Build Source
+          command: go build ./...
+
+  check_formatting:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /
+      - run:
+          name: Check Formatting
+          command: test -z $(go fmt ./...)
+
+  vet_source:
+    <<: *defaults
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - attach_workspace:
+          at: /
+      - run:
+          name: Vet Source
+          command: go vet -all ./...
+
+  lint_source:
+    <<: *defaults
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - attach_workspace:
+          at: /
+      - run:
+          name: Check for Lint
+          command: |
+            go get -u golang.org/x/lint/golint
+            golint -set_exit_status `go list ./...`
+
+  unit_test:
+    <<: *defaults
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - attach_workspace:
+          at: /
+      - run:
+          name: Run Tests
+          command: go test -cover -race -timeout 60s ./...
+      - store_artifacts:
+          path: cover.out
+          destination: cover.out
+
+workflows:
+  version: 2
+
+  build_and_test:
+    jobs:
+      - get_source
+      - build_source:
+          requires:
+            - get_source
+      - check_formatting:
+          requires:
+            - get_source
+      - vet_source:
+          requires:
+            - get_source
+      - lint_source:
+          requires:
+            - get_source
+      - unit_test:
+          requires:
+            - get_source
