@@ -22,18 +22,6 @@ const (
 	pathPKSLookup = "/pks/lookup"
 )
 
-// Operations for PKS Add.
-const (
-	OperationGet    = "get"
-	OperationIndex  = "index"
-	OperationVIndex = "vindex"
-)
-
-// Options for PKS Add.
-const (
-	OptionMachineReadable = "mr"
-)
-
 // PKSAdd submits an ASCII armored keyring to the Key Service, as specified in section 4 of the
 // OpenPGP HTTP Keyserver Protocol (HKP) specification. The context controls the lifetime of the
 // request.
@@ -58,6 +46,18 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	}
 	return nil
 }
+
+const (
+	// OperationGet is a PKSLookup operation value to perform a "get" operation.
+	OperationGet = "get"
+	// OperationIndex is a PKSLookup operation value to perform a "index" operation.
+	OperationIndex = "index"
+	// OperationVIndex is a PKSLookup operation value to perform a "vindex" operation.
+	OperationVIndex = "vindex"
+)
+
+// OptionMachineReadable is a PKSLookup options value to return machine readable output.
+const OptionMachineReadable = "mr"
 
 // PKSLookup requests data from the Key Service, as specified in section 3 of the OpenPGP HTTP
 // Keyserver Protocol (HKP) specification. The context controls the lifetime of the request.
