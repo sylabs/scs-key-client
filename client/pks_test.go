@@ -157,7 +157,9 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("X-HKP-Next-Page-Token", m.nextPageToken)
-	io.Copy(w, strings.NewReader(m.response))
+	if _, err := io.Copy(w, strings.NewReader(m.response)); err != nil {
+		m.t.Fatalf("failed to copy: %v", err)
+	}
 }
 
 func TestPKSLookup(t *testing.T) {
