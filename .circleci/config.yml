@@ -1,15 +1,13 @@
 version: 2
 
 defaults: &defaults
-  working_directory: /go/src/github.com/sylabs/scs-key-client
+  working_directory: /src
   docker:
-    - image: golang:latest
+    - image: golang:1.12
 
 jobs:
   build:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - checkout
       - run:
@@ -34,15 +32,27 @@ jobs:
     <<: *defaults
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - go-mod-{{ checksum "go.sum" }}
+      - run:
+          name: Populate Go Mod Cache
+          command: |
+            if [ ! -d /go/pkg/mod ]; then
+              go mod download
+            fi
+      - save_cache:
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - '/go/pkg/mod'
       - persist_to_workspace:
           root: /
           paths:
-            - go/src/github.com/sylabs/scs-key-client/*
+            - go/pkg/mod/*
+            - src/*
 
   build_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -61,8 +71,6 @@ jobs:
 
   vet_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -72,8 +80,6 @@ jobs:
 
   lint_source:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
@@ -85,8 +91,6 @@ jobs:
 
   unit_test:
     <<: *defaults
-    environment:
-      GO111MODULE: "on"
     steps:
       - attach_workspace:
           at: /
