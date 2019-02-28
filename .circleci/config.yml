@@ -84,10 +84,24 @@ jobs:
       - attach_workspace:
           at: /
       - run:
+          name: Install golangci-lint
+          command: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.15.0
+      - run:
           name: Check for Lint
-          command: |
-            curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.15.0
-            golangci-lint run ./...
+          command: golangci-lint run ./...
+
+  lint_markdown:
+    docker:
+      - image: circleci/ruby:2.4.1-node
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install markdownlint
+          command: sudo npm install -g markdownlint-cli
+      - run:
+          name: Check for Lint
+          command: markdownlint --config src/.markdownlint.json src/
 
   unit_test:
     <<: *defaults
@@ -97,9 +111,6 @@ jobs:
       - run:
           name: Run Tests
           command: go test -cover -race -timeout 60s ./...
-      - store_artifacts:
-          path: cover.out
-          destination: cover.out
 
 workflows:
   version: 2
@@ -117,6 +128,9 @@ workflows:
           requires:
             - get_source
       - lint_source:
+          requires:
+            - get_source
+      - lint_markdown:
           requires:
             - get_source
       - unit_test:
