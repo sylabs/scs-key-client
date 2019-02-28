@@ -14,7 +14,7 @@ import (
 
 // Config contains the client configuration.
 type Config struct {
-	// BaseURL of the service (https://keys.sylabs.io is used if not supplied).
+	// Base URL of the service (https://keys.sylabs.io is used if not supplied).
 	BaseURL string
 	// Auth token to include in the Authorization header of each request (if supplied).
 	AuthToken string
@@ -37,10 +37,14 @@ type PageDetails struct {
 
 // Client describes the client details.
 type Client struct {
-	baseURL    *url.URL
-	authToken  string
-	userAgent  string
-	httpClient *http.Client
+	// Base URL of the service.
+	BaseURL *url.URL
+	// Auth token to include in the Authorization header of each request (if supplied).
+	AuthToken string
+	// User agent to include in each request (if supplied).
+	UserAgent string
+	// HTTPClient to use to make HTTP requests.
+	HTTPClient *http.Client
 }
 
 // NewClient sets up a new Key Service client with the specified base URL and auth token.
@@ -60,16 +64,16 @@ func NewClient(cfg *Config) (c *Client, err error) {
 	}
 
 	c = &Client{
-		baseURL:   baseURL,
-		authToken: cfg.AuthToken,
-		userAgent: cfg.UserAgent,
+		BaseURL:   baseURL,
+		AuthToken: cfg.AuthToken,
+		UserAgent: cfg.UserAgent,
 	}
 
 	// Set HTTP client
 	if cfg.HTTPClient != nil {
-		c.httpClient = cfg.HTTPClient
+		c.HTTPClient = cfg.HTTPClient
 	} else {
-		c.httpClient = http.DefaultClient
+		c.HTTPClient = http.DefaultClient
 	}
 
 	return c, nil
@@ -77,7 +81,7 @@ func NewClient(cfg *Config) (c *Client, err error) {
 
 // newRequest returns a new Request given a method, path, query, and optional body.
 func (c *Client) newRequest(method, path, rawQuery string, body io.Reader) (r *http.Request, err error) {
-	u := c.baseURL.ResolveReference(&url.URL{
+	u := c.BaseURL.ResolveReference(&url.URL{
 		Path:     path,
 		RawQuery: rawQuery,
 	})
@@ -86,10 +90,10 @@ func (c *Client) newRequest(method, path, rawQuery string, body io.Reader) (r *h
 	if err != nil {
 		return nil, err
 	}
-	if v := c.authToken; v != "" {
+	if v := c.AuthToken; v != "" {
 		r.Header.Set("Authorization", fmt.Sprintf("BEARER %s", v))
 	}
-	if v := c.userAgent; v != "" {
+	if v := c.UserAgent; v != "" {
 		r.Header.Set("User-Agent", v)
 	}
 

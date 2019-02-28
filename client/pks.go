@@ -35,7 +35,7 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	res, err := c.httpClient.Do(req.WithContext(ctx))
+	res, err := c.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		return "", err
 	}
 
-	res, err := c.httpClient.Do(req.WithContext(ctx))
+	res, err := c.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return "", err
 	}
