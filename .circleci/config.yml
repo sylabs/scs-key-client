@@ -54,8 +54,20 @@ jobs:
   build_source:
     <<: *defaults
     steps:
+      - run:
+          command: |
+            echo "Listing of /go:"
+            find /go
+            echo "Listing of /src:"
+            find /src
       - attach_workspace:
           at: /
+      - run:
+          command: |
+            echo "Listing of /go:"
+            find /go
+            echo "Listing of /src:"
+            find /src
       - run:
           name: Build Source
           command: go build ./...
