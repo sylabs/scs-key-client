@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sylabs/json-resp"
+	jsonresp "github.com/sylabs/json-resp"
 )
 
 const (
@@ -42,7 +42,10 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return jsonresp.NewError(res.StatusCode, res.Status)
+		if err := jsonresp.ReadError(res.Body); err != nil {
+			return err
+		}
+		return jsonresp.NewError(res.StatusCode, "")
 	}
 	return nil
 }
@@ -89,7 +92,10 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return "", jsonresp.NewError(res.StatusCode, res.Status)
+		if err := jsonresp.ReadError(res.Body); err != nil {
+			return "", err
+		}
+		return "", jsonresp.NewError(res.StatusCode, "")
 	}
 
 	if pd != nil {

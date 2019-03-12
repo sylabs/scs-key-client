@@ -15,19 +15,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sylabs/json-resp"
+	jsonresp "github.com/sylabs/json-resp"
 )
 
 type MockPKSAdd struct {
 	t       *testing.T
 	code    int
+	message string
 	keyText string
 }
 
 func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.code != http.StatusOK {
-		if err := jsonresp.WriteError(w, "", m.code); err != nil {
-			m.t.Fatalf("failed to write error: %v", err)
+		if m.message != "" {
+			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
+				m.t.Fatalf("failed to write error: %v", err)
+			}
+		} else {
+			w.WriteHeader(m.code)
 		}
 		return
 	}
@@ -60,15 +65,18 @@ func TestPKSAdd(t *testing.T) {
 		name    string
 		baseURL string
 		code    int
+		message string
 	}{
-		{"Success", s.URL, http.StatusOK},
-		{"JSONError", s.URL, http.StatusBadRequest},
-		{"BadURL", "http://127.0.0.1:123456", 0},
+		{"Success", s.URL, http.StatusOK, ""},
+		{"Error", s.URL, http.StatusBadRequest, ""},
+		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah"},
+		{"BadURL", "http://127.0.0.1:123456", 0, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
+			m.message = tt.message
 
 			c, err := NewClient(&Config{
 				BaseURL: tt.baseURL,
@@ -92,6 +100,8 @@ func TestPKSAdd(t *testing.T) {
 						t.Fatalf("failed to cast to jsonresp.Error")
 					} else if got, want := err.Code, tt.code; got != want {
 						t.Errorf("got code %v, want %v", got, want)
+					} else if got, want := err.Message, tt.message; got != want {
+						t.Errorf("got message %v, want %v", got, want)
 					}
 				}
 			}
@@ -102,6 +112,7 @@ func TestPKSAdd(t *testing.T) {
 type MockPKSLookup struct {
 	t             *testing.T
 	code          int
+	message       string
 	search        string
 	op            string
 	options       string
@@ -115,8 +126,12 @@ type MockPKSLookup struct {
 
 func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.code != http.StatusOK {
-		if err := jsonresp.WriteError(w, "", m.code); err != nil {
-			m.t.Fatalf("failed to write error: %v", err)
+		if m.message != "" {
+			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
+				m.t.Fatalf("failed to write error: %v", err)
+			}
+		} else {
+			w.WriteHeader(m.code)
 		}
 		return
 	}
@@ -174,6 +189,7 @@ func TestPKSLookup(t *testing.T) {
 		name          string
 		baseURL       string
 		code          int
+		message       string
 		search        string
 		op            string
 		options       []string
@@ -183,31 +199,33 @@ func TestPKSLookup(t *testing.T) {
 		pageSize      int
 		nextPageToken string
 	}{
-		{"Get", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"GetNPT", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "", 0, "bar"},
-		{"GetSize", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "", 42, ""},
-		{"GetSizeNPT", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "", 42, "bar"},
-		{"GetPT", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "foo", 0, ""},
-		{"GetPTNPT", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "foo", 0, "bar"},
-		{"GetPTSize", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "foo", 42, ""},
-		{"GetPTSizeNPT", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, false, "foo", 42, "bar"},
-		{"GetMachineReadable", s.URL, http.StatusOK, "search", OperationGet, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"GetExact", s.URL, http.StatusOK, "search", OperationGet, []string{}, false, true, "", 0, ""},
-		{"Index", s.URL, http.StatusOK, "search", OperationIndex, []string{}, false, false, "", 0, ""},
-		{"IndexMachineReadable", s.URL, http.StatusOK, "search", OperationIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"IndexFingerprint", s.URL, http.StatusOK, "search", OperationIndex, []string{}, true, false, "", 0, ""},
-		{"IndexExact", s.URL, http.StatusOK, "search", OperationIndex, []string{}, false, true, "", 0, ""},
-		{"VIndex", s.URL, http.StatusOK, "search", OperationVIndex, []string{}, false, false, "", 0, ""},
-		{"VIndexMachineReadable", s.URL, http.StatusOK, "search", OperationVIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"VIndexFingerprint", s.URL, http.StatusOK, "search", OperationVIndex, []string{}, true, false, "", 0, ""},
-		{"VIndexExact", s.URL, http.StatusOK, "search", OperationVIndex, []string{}, false, true, "", 0, ""},
-		{"JSONError", s.URL, http.StatusBadRequest, "", "", []string{}, false, false, "", 0, ""},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", "", []string{}, false, false, "", 0, ""},
+		{"Get", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
+		{"GetNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, "bar"},
+		{"GetSize", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 42, ""},
+		{"GetSizeNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 42, "bar"},
+		{"GetPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 0, ""},
+		{"GetPTNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 0, "bar"},
+		{"GetPTSize", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, ""},
+		{"GetPTSizeNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, "bar"},
+		{"GetMachineReadable", s.URL, http.StatusOK, "", "search", OperationGet, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"GetExact", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, true, "", 0, ""},
+		{"Index", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, false, "", 0, ""},
+		{"IndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"IndexFingerprint", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, true, false, "", 0, ""},
+		{"IndexExact", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, true, "", 0, ""},
+		{"VIndex", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, false, "", 0, ""},
+		{"VIndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"VIndexFingerprint", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, true, false, "", 0, ""},
+		{"VIndexExact", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, true, "", 0, ""},
+		{"Error", s.URL, http.StatusBadRequest, "", "", "", []string{}, false, false, "", 0, ""},
+		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", "", "", []string{}, false, false, "", 0, ""},
+		{"BadURL", "http://127.0.0.1:123456", 0, "", "", "", []string{}, false, false, "", 0, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
+			m.message = tt.message
 			m.search = tt.search
 			m.op = tt.op
 			m.options = strings.Join(tt.options, ",")
@@ -249,6 +267,8 @@ func TestPKSLookup(t *testing.T) {
 						t.Fatalf("failed to cast to jsonresp.Error")
 					} else if got, want := err.Code, tt.code; got != want {
 						t.Errorf("got code %v, want %v", got, want)
+					} else if got, want := err.Message, tt.message; got != want {
+						t.Errorf("got message %v, want %v", got, want)
 					}
 				}
 			}
@@ -277,16 +297,19 @@ func TestGetKey(t *testing.T) {
 		name    string
 		baseURL string
 		code    int
+		message string
 		fp      [20]byte
 	}{
-		{"Success", s.URL, http.StatusOK, fp},
-		{"JSONError", s.URL, http.StatusBadRequest, fp},
-		{"BadURL", "http://127.0.0.1:123456", 0, fp},
+		{"Success", s.URL, http.StatusOK, "", fp},
+		{"Error", s.URL, http.StatusBadRequest, "", fp},
+		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", fp},
+		{"BadURL", "http://127.0.0.1:123456", 0, "", fp},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
+			m.message = tt.message
 
 			c, err := NewClient(&Config{
 				BaseURL: tt.baseURL,
@@ -313,6 +336,8 @@ func TestGetKey(t *testing.T) {
 						t.Fatalf("failed to cast to jsonresp.Error")
 					} else if got, want := err.Code, tt.code; got != want {
 						t.Errorf("got code %v, want %v", got, want)
+					} else if got, want := err.Message, tt.message; got != want {
+						t.Errorf("got message %v, want %v", got, want)
 					}
 				}
 			}
