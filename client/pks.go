@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,10 +23,19 @@ const (
 	pathPKSLookup = "/pks/lookup"
 )
 
+var (
+	// ErrInvalidKeyText is returned when the key text is invalid.
+	ErrInvalidKeyText = errors.New("invalid key text")
+)
+
 // PKSAdd submits an ASCII armored keyring to the Key Service, as specified in section 4 of the
 // OpenPGP HTTP Keyserver Protocol (HKP) specification. The context controls the lifetime of the
 // request.
 func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
+	if keyText == "" {
+		return ErrInvalidKeyText
+	}
+
 	v := url.Values{}
 	v.Set("keytext", keyText)
 

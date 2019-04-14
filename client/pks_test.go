@@ -55,8 +55,7 @@ func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestPKSAdd(t *testing.T) {
 	m := &MockPKSAdd{
-		t:       t,
-		keyText: "Not valid, but it'll do for testing",
+		t: t,
 	}
 	s := httptest.NewServer(m)
 	defer s.Close()
@@ -64,19 +63,22 @@ func TestPKSAdd(t *testing.T) {
 	tests := []struct {
 		name    string
 		baseURL string
+		keyText string
 		code    int
 		message string
 	}{
-		{"Success", s.URL, http.StatusOK, ""},
-		{"Error", s.URL, http.StatusBadRequest, ""},
-		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah"},
-		{"BadURL", "http://127.0.0.1:123456", 0, ""},
+		{"Success", s.URL, "key", http.StatusOK, ""},
+		{"Error", s.URL, "key", http.StatusBadRequest, ""},
+		{"ErrorMessage", s.URL, "key", http.StatusBadRequest, "blah"},
+		{"BadURL", "http://127.0.0.1:123456", "key", 0, ""},
+		{"InvalidKeyText", s.URL, "", 0, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
 			m.message = tt.message
+			m.keyText = tt.keyText
 
 			c, err := NewClient(&Config{
 				BaseURL: tt.baseURL,
@@ -85,7 +87,7 @@ func TestPKSAdd(t *testing.T) {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			err = c.PKSAdd(context.Background(), m.keyText)
+			err = c.PKSAdd(context.Background(), tt.keyText)
 
 			if tt.code == http.StatusOK {
 				if err != nil {
