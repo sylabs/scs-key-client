@@ -19,27 +19,27 @@ func TestNewClient(t *testing.T) {
 		name           string
 		cfg            *Config
 		wantErr        bool
-		wantHost       string
+		wantURL        string
 		wantAuthToken  string
 		wantUserAgent  string
 		wantHTTPClient *http.Client
 	}{
-		{"NilConfig", nil, false, "keys.sylabs.io", "", "", http.DefaultClient},
+		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
 		{"BaseURL", &Config{
 			BaseURL: "https://keys.staging.sycloud.io",
-		}, false, "keys.staging.sycloud.io", "", "", http.DefaultClient},
+		}, false, "https://keys.staging.sycloud.io", "", "", http.DefaultClient},
 		{"BadBaseURL", &Config{
 			BaseURL: ":",
 		}, true, "", "", "", nil},
 		{"AuthToken", &Config{
 			AuthToken: "blah",
-		}, false, "keys.sylabs.io", "blah", "", http.DefaultClient},
+		}, false, defaultBaseURL, "blah", "", http.DefaultClient},
 		{"UserAgent", &Config{
 			UserAgent: "Secret Agent Man",
-		}, false, "keys.sylabs.io", "", "Secret Agent Man", http.DefaultClient},
+		}, false, defaultBaseURL, "", "Secret Agent Man", http.DefaultClient},
 		{"HTTPClient", &Config{
 			HTTPClient: httpClient,
-		}, false, "keys.sylabs.io", "", "", httpClient},
+		}, false, defaultBaseURL, "", "", httpClient},
 	}
 
 	for _, tt := range tests {
@@ -50,7 +50,7 @@ func TestNewClient(t *testing.T) {
 			}
 
 			if err == nil {
-				if got, want := c.BaseURL.Host, tt.wantHost; got != want {
+				if got, want := c.BaseURL.String(), tt.wantURL; got != want {
 					t.Errorf("got host %v, want %v", got, want)
 				}
 
@@ -79,23 +79,24 @@ func TestNewRequest(t *testing.T) {
 		rawQuery       string
 		body           string
 		wantErr        bool
+		wantURL        string
 		wantAuthBearer string
 		wantUserAgent  string
 	}{
-		{"BadMethod", nil, "b@d	", "", "", "", true, "", ""},
-		{"NilConfigGet", nil, http.MethodGet, "/path", "", "", false, "", ""},
-		{"NilConfigPost", nil, http.MethodPost, "/path", "", "", false, "", ""},
-		{"NilConfigPostRawQuery", nil, http.MethodPost, "/path", "a=b", "", false, "", ""},
-		{"NilConfigPostBody", nil, http.MethodPost, "/path", "", "body", false, "", ""},
+		{"BadMethod", nil, "b@d	", "", "", "", true, "", "", ""},
+		{"NilConfigGet", nil, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
+		{"NilConfigPost", nil, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
+		{"NilConfigPostRawQuery", nil, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
+		{"NilConfigPostBody", nil, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
 		{"BaseURL", &Config{
 			BaseURL: "https://keys.staging.sycloud.io",
-		}, http.MethodGet, "/path", "", "", false, "", ""},
+		}, http.MethodGet, "/path", "", "", false, "https://keys.staging.sycloud.io/path", "", ""},
 		{"AuthToken", &Config{
 			AuthToken: "blah",
-		}, http.MethodGet, "/path", "", "", false, "BEARER blah", ""},
+		}, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "BEARER blah", ""},
 		{"UserAgent", &Config{
 			UserAgent: "Secret Agent Man",
-		}, http.MethodGet, "/path", "", "", false, "", "Secret Agent Man"},
+		}, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", "Secret Agent Man"},
 	}
 
 	for _, tt := range tests {
@@ -115,12 +116,8 @@ func TestNewRequest(t *testing.T) {
 					t.Errorf("got method %v, want %v", got, want)
 				}
 
-				if got, want := r.URL.Path, tt.path; got != want {
-					t.Errorf("got path %v, want %v", got, want)
-				}
-
-				if got, want := r.URL.RawQuery, tt.rawQuery; got != want {
-					t.Errorf("got query %v, want %v", got, want)
+				if got, want := r.URL.String(), tt.wantURL; got != want {
+					t.Errorf("got URL %v, want %v", got, want)
 				}
 
 				b, err := ioutil.ReadAll(r.Body)

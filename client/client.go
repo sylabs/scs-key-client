@@ -47,6 +47,8 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+const defaultBaseURL = "https://keys.sylabs.io"
+
 // NewClient sets up a new Key Service client with the specified base URL and auth token.
 func NewClient(cfg *Config) (c *Client, err error) {
 	if cfg == nil {
@@ -54,7 +56,7 @@ func NewClient(cfg *Config) (c *Client, err error) {
 	}
 
 	// Determine base URL
-	bu := "https://keys.sylabs.io"
+	bu := defaultBaseURL
 	if cfg.BaseURL != "" {
 		bu = cfg.BaseURL
 	}
