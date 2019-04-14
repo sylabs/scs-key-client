@@ -8,6 +8,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 )
@@ -47,6 +48,30 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// normalizeURL normalizes the scheme of the supplied URL. If an unsupported scheme is provided, an
+// error is returned.
+func normalizeURL(u *url.URL) (*url.URL, error) {
+	switch u.Scheme {
+	case "http", "https":
+		return u, nil
+	case "hkp":
+		// The HKP scheme is HTTP and implies port 11371.
+		newURL := *u
+		newURL.Scheme = "http"
+		if u.Port() == "" {
+			newURL.Host = net.JoinHostPort(u.Hostname(), "11371")
+		}
+		return &newURL, nil
+	case "hkps":
+		// The HKPS scheme is HTTPS and implies port 443.
+		newURL := *u
+		newURL.Scheme = "https"
+		return &newURL, nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol scheme %q", u.Scheme)
+	}
+}
+
 const defaultBaseURL = "https://keys.sylabs.io"
 
 // NewClient sets up a new Key Service client with the specified base URL and auth token.
@@ -61,6 +86,10 @@ func NewClient(cfg *Config) (c *Client, err error) {
 		bu = cfg.BaseURL
 	}
 	baseURL, err := url.Parse(bu)
+	if err != nil {
+		return nil, err
+	}
+	baseURL, err = normalizeURL(baseURL)
 	if err != nil {
 		return nil, err
 	}

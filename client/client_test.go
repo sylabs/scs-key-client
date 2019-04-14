@@ -25,9 +25,21 @@ func TestNewClient(t *testing.T) {
 		wantHTTPClient *http.Client
 	}{
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
-		{"BaseURL", &Config{
-			BaseURL: "https://keys.staging.sycloud.io",
-		}, false, "https://keys.staging.sycloud.io", "", "", http.DefaultClient},
+		{"HTTPBaseURL", &Config{
+			BaseURL: "http://p80.pool.sks-keyservers.net",
+		}, false, "http://p80.pool.sks-keyservers.net", "", "", http.DefaultClient},
+		{"HTTPSBaseURL", &Config{
+			BaseURL: "https://hkps.pool.sks-keyservers.net",
+		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
+		{"HKPBaseURL", &Config{
+			BaseURL: "hkp://pool.sks-keyservers.net",
+		}, false, "http://pool.sks-keyservers.net:11371", "", "", http.DefaultClient},
+		{"HKPSBaseURL", &Config{
+			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
+		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
+		{"UnsupportedBaseURL", &Config{
+			BaseURL: "bad:",
+		}, true, "", "", "", nil},
 		{"BadBaseURL", &Config{
 			BaseURL: ":",
 		}, true, "", "", "", nil},
@@ -88,9 +100,18 @@ func TestNewRequest(t *testing.T) {
 		{"NilConfigPost", nil, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"NilConfigPostRawQuery", nil, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
 		{"NilConfigPostBody", nil, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
-		{"BaseURL", &Config{
-			BaseURL: "https://keys.staging.sycloud.io",
-		}, http.MethodGet, "/path", "", "", false, "https://keys.staging.sycloud.io/path", "", ""},
+		{"HTTPBaseURL", &Config{
+			BaseURL: "http://p80.pool.sks-keyservers.net",
+		}, http.MethodGet, "/path", "", "", false, "http://p80.pool.sks-keyservers.net/path", "", ""},
+		{"HTTPSBaseURL", &Config{
+			BaseURL: "https://hkps.pool.sks-keyservers.net",
+		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
+		{"HKPBaseURL", &Config{
+			BaseURL: "hkp://pool.sks-keyservers.net",
+		}, http.MethodGet, "/path", "", "", false, "http://pool.sks-keyservers.net:11371/path", "", ""},
+		{"HKPSBaseURL", &Config{
+			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
+		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
 		{"AuthToken", &Config{
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "BEARER blah", ""},
