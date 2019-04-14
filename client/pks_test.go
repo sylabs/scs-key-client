@@ -155,22 +155,65 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if got, want := r.Form.Get("op"), m.op; got != want {
 		m.t.Errorf("got op %v, want %v", got, want)
 	}
-	if got, want := r.Form.Get("options"), m.options; got != want {
-		m.t.Errorf("got options %v, want %v", got, want)
+
+	// options is optional.
+	options, ok := r.Form["options"]
+	if got, want := ok, m.options != ""; got != want {
+		m.t.Errorf("options presence %v, want %v", got, want)
+	} else if ok {
+		if len(options) != 1 {
+			m.t.Errorf("got multiple options values")
+		} else if got, want := options[0], m.options; got != want {
+			m.t.Errorf("got options %v, want %v", got, want)
+		}
 	}
-	fingerprint := r.Form.Get("fingerprint") == "on"
-	if got, want := fingerprint, m.fingerprint; got != want {
-		m.t.Errorf("got fingerprint %v, want %v", got, want)
+
+	// fingerprint is optional.
+	fp, ok := r.Form["fingerprint"]
+	if got, want := ok, m.fingerprint; got != want {
+		m.t.Errorf("fingerprint presence %v, want %v", got, want)
+	} else if ok {
+		if len(fp) != 1 {
+			m.t.Errorf("got multiple fingerprint values")
+		} else if got, want := fp[0], "on"; got != want {
+			m.t.Errorf("got fingerprint %v, want %v", got, want)
+		}
 	}
-	exact := r.Form.Get("exact") == "on"
-	if got, want := exact, m.exact; got != want {
-		m.t.Errorf("got exact %v, want %v", got, want)
+
+	// exact is optional.
+	exact, ok := r.Form["exact"]
+	if got, want := ok, m.exact; got != want {
+		m.t.Errorf("exact presence %v, want %v", got, want)
+	} else if ok {
+		if len(exact) != 1 {
+			m.t.Errorf("got multiple exact values")
+		} else if got, want := exact[0], "on"; got != want {
+			m.t.Errorf("got exact %v, want %v", got, want)
+		}
 	}
-	if got, want := r.Form.Get("x-pagesize"), m.pageSize; got != want {
-		m.t.Errorf("got page size %v, want %v", got, want)
+
+	// x-pagesize is optional.
+	pageSize, ok := r.Form["x-pagesize"]
+	if got, want := ok, m.pageSize != ""; got != want {
+		m.t.Errorf("page size presence %v, want %v", got, want)
+	} else if ok {
+		if len(pageSize) != 1 {
+			m.t.Error("got multiple page size values")
+		} else if got, want := pageSize[0], m.pageSize; got != want {
+			m.t.Errorf("got page size %v, want %v", got, want)
+		}
 	}
-	if got, want := r.Form.Get("x-pagetoken"), m.pageToken; got != want {
-		m.t.Errorf("got page token %v, want %v", got, want)
+
+	// x-pagetoken is optional.
+	pageToken, ok := r.Form["x-pagetoken"]
+	if got, want := ok, m.pageToken != ""; got != want {
+		m.t.Errorf("page token presence %v, want %v", got, want)
+	} else if ok {
+		if len(pageToken) != 1 {
+			m.t.Error("got multiple page token values")
+		} else if got, want := pageToken[0], m.pageToken; got != want {
+			m.t.Errorf("got page token %v, want %v", got, want)
+		}
 	}
 
 	w.Header().Set("X-HKP-Next-Page-Token", m.nextPageToken)
@@ -210,18 +253,23 @@ func TestPKSLookup(t *testing.T) {
 		{"GetPTSize", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, ""},
 		{"GetPTSizeNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, "bar"},
 		{"GetMachineReadable", s.URL, http.StatusOK, "", "search", OperationGet, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"GetMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationGet, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
 		{"GetExact", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, true, "", 0, ""},
 		{"Index", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, false, "", 0, ""},
 		{"IndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"IndexMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationIndex, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
 		{"IndexFingerprint", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, true, false, "", 0, ""},
 		{"IndexExact", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, true, "", 0, ""},
 		{"VIndex", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, false, "", 0, ""},
 		{"VIndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
+		{"VIndexMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
 		{"VIndexFingerprint", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, true, false, "", 0, ""},
 		{"VIndexExact", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, true, "", 0, ""},
-		{"Error", s.URL, http.StatusBadRequest, "", "", "", []string{}, false, false, "", 0, ""},
-		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", "", "", []string{}, false, false, "", 0, ""},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", "", "", []string{}, false, false, "", 0, ""},
+		{"Error", s.URL, http.StatusBadRequest, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
+		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", "search", OperationGet, []string{}, false, false, "", 0, ""},
+		{"BadURL", "http://127.0.0.1:123456", 0, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
+		{"InvalidSearch", s.URL, 0, "", "", OperationGet, []string{}, false, false, "", 0, ""},
+		{"InvalidOperation", s.URL, 0, "", "search", "", []string{}, false, false, "", 0, ""},
 	}
 
 	for _, tt := range tests {
@@ -234,7 +282,11 @@ func TestPKSLookup(t *testing.T) {
 			m.fingerprint = tt.fingerprint
 			m.exact = tt.exact
 			m.pageToken = tt.pageToken
-			m.pageSize = strconv.Itoa(tt.pageSize)
+			if tt.pageSize == 0 {
+				m.pageSize = ""
+			} else {
+				m.pageSize = strconv.Itoa(tt.pageSize)
+			}
 			m.nextPageToken = tt.nextPageToken
 
 			c, err := NewClient(&Config{
