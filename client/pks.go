@@ -138,6 +138,6 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 
 // GetKey retrieves an ASCII armored keyring from the Key Service. The context controls the
 // lifetime of the request.
-func (c *Client) GetKey(ctx context.Context, fingerprint [20]byte) (keyText string, err error) {
+func (c *Client) GetKey(ctx context.Context, fingerprint []byte) (keyText string, err error) {
 	return c.PKSLookup(ctx, nil, fmt.Sprintf("%#x", fingerprint), OperationGet, false, true, nil)
 }
