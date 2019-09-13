@@ -31,6 +31,14 @@ func TestNewClient(t *testing.T) {
 		{"BadBaseURL", &Config{
 			BaseURL: ":",
 		}, true, "", "", "", nil},
+		{"TLSRequiredHTTP", &Config{
+			BaseURL:   "http://p80.pool.sks-keyservers.net",
+			AuthToken: "blah",
+		}, true, "", "", "", nil},
+		{"TLSRequiredHKP", &Config{
+			BaseURL:   "hkp://pool.sks-keyservers.net",
+			AuthToken: "blah",
+		}, true, "", "", "", nil},
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
 		{"HTTPBaseURL", &Config{
 			BaseURL: "http://p80.pool.sks-keyservers.net",
@@ -119,6 +127,14 @@ func TestNewRequest(t *testing.T) {
 		wantUserAgent  string
 	}{
 		{"BadMethod", defaultClient, "b@d	", "", "", "", true, "", "", ""},
+		{"TLSRequiredHTTP", &Client{
+			BaseURL:   httpURL,
+			AuthToken: "blah",
+		}, "", "", "", "", true, "", "", ""},
+		{"TLSRequiredHKP", &Client{
+			BaseURL:   hkpURL,
+			AuthToken: "blah",
+		}, http.MethodGet, "/path", "", "", true, "", "", ""},
 		{"Get", defaultClient, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"Post", defaultClient, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"PostRawQuery", defaultClient, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},

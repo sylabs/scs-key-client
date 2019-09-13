@@ -6,11 +6,17 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+)
+
+var (
+	// ErrTLSRequired is returned when an auth token is supplied with a non-TLS BaseURL.
+	ErrTLSRequired = errors.New("TLS required when auth token provided")
 )
 
 // Config contains the client configuration.
@@ -94,6 +100,11 @@ func NewClient(cfg *Config) (c *Client, err error) {
 		return nil, err
 	}
 
+	// If auth token is used, verify TLS.
+	if cfg.AuthToken != "" && baseURL.Scheme != "https" && baseURL.Host != "localhost" {
+		return nil, ErrTLSRequired
+	}
+
 	c = &Client{
 		BaseURL:   baseURL,
 		AuthToken: cfg.AuthToken,
@@ -116,6 +127,15 @@ func (c *Client) newRequest(method, path, rawQuery string, body io.Reader) (r *h
 		Path:     path,
 		RawQuery: rawQuery,
 	})
+	u, err = normalizeURL(u)
+	if err != nil {
+		return nil, err
+	}
+
+	// If auth token is used, verify TLS.
+	if c.AuthToken != "" && u.Scheme != "https" && u.Host != "localhost" {
+		return nil, ErrTLSRequired
+	}
 
 	r, err = http.NewRequest(method, u.String(), body)
 	if err != nil {
