@@ -8,6 +8,7 @@ package client
 import (
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,12 @@ func TestNewClient(t *testing.T) {
 		wantUserAgent  string
 		wantHTTPClient *http.Client
 	}{
+		{"UnsupportedBaseURL", &Config{
+			BaseURL: "bad:",
+		}, true, "", "", "", nil},
+		{"BadBaseURL", &Config{
+			BaseURL: ":",
+		}, true, "", "", "", nil},
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
 		{"HTTPBaseURL", &Config{
 			BaseURL: "http://p80.pool.sks-keyservers.net",
@@ -37,12 +44,6 @@ func TestNewClient(t *testing.T) {
 		{"HKPSBaseURL", &Config{
 			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
 		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
-		{"UnsupportedBaseURL", &Config{
-			BaseURL: "bad:",
-		}, true, "", "", "", nil},
-		{"BadBaseURL", &Config{
-			BaseURL: ":",
-		}, true, "", "", "", nil},
 		{"AuthToken", &Config{
 			AuthToken: "blah",
 		}, false, defaultBaseURL, "blah", "", http.DefaultClient},
@@ -83,9 +84,31 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestNewRequest(t *testing.T) {
+	defaultClient, err := NewClient(DefaultConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	httpURL, err := url.Parse("http://p80.pool.sks-keyservers.net")
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpsURL, err := url.Parse("https://hkps.pool.sks-keyservers.net")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hkpURL, err := url.Parse("hkp://pool.sks-keyservers.net")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hkpsURL, err := url.Parse("hkps://hkps.pool.sks-keyservers.net")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name           string
-		cfg            *Config
+		client         *Client
 		method         string
 		path           string
 		rawQuery       string
@@ -95,39 +118,36 @@ func TestNewRequest(t *testing.T) {
 		wantAuthBearer string
 		wantUserAgent  string
 	}{
-		{"BadMethod", nil, "b@d	", "", "", "", true, "", "", ""},
-		{"NilConfigGet", nil, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
-		{"NilConfigPost", nil, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
-		{"NilConfigPostRawQuery", nil, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
-		{"NilConfigPostBody", nil, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
-		{"HTTPBaseURL", &Config{
-			BaseURL: "http://p80.pool.sks-keyservers.net",
+		{"BadMethod", defaultClient, "b@d	", "", "", "", true, "", "", ""},
+		{"Get", defaultClient, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
+		{"Post", defaultClient, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
+		{"PostRawQuery", defaultClient, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
+		{"PostBody", defaultClient, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
+		{"HTTPBaseURL", &Client{
+			BaseURL: httpURL,
 		}, http.MethodGet, "/path", "", "", false, "http://p80.pool.sks-keyservers.net/path", "", ""},
-		{"HTTPSBaseURL", &Config{
-			BaseURL: "https://hkps.pool.sks-keyservers.net",
+		{"HTTPSBaseURL", &Client{
+			BaseURL: httpsURL,
 		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
-		{"HKPBaseURL", &Config{
-			BaseURL: "hkp://pool.sks-keyservers.net",
+		{"HKPBaseURL", &Client{
+			BaseURL: hkpURL,
 		}, http.MethodGet, "/path", "", "", false, "http://pool.sks-keyservers.net:11371/path", "", ""},
-		{"HKPSBaseURL", &Config{
-			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
+		{"HKPSBaseURL", &Client{
+			BaseURL: hkpsURL,
 		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
-		{"AuthToken", &Config{
+		{"AuthToken", &Client{
+			BaseURL:   defaultClient.BaseURL,
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "BEARER blah", ""},
-		{"UserAgent", &Config{
+		{"UserAgent", &Client{
+			BaseURL:   defaultClient.BaseURL,
 			UserAgent: "Secret Agent Man",
 		}, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", "Secret Agent Man"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := NewClient(tt.cfg)
-			if err != nil {
-				t.Fatalf("failed to create client: %v", err)
-			}
-
-			r, err := c.newRequest(tt.method, tt.path, tt.rawQuery, strings.NewReader(tt.body))
+			r, err := tt.client.newRequest(tt.method, tt.path, tt.rawQuery, strings.NewReader(tt.body))
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("got err %v, wantErr %v", err, tt.wantErr)
 			}
