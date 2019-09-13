@@ -108,7 +108,7 @@ func NewClient(cfg *Config) (c *Client, err error) {
 	}
 
 	// If auth token is used, verify TLS.
-	if cfg.AuthToken != "" && baseURL.Scheme != schemeHTTPS && baseURL.Host != "localhost" {
+	if cfg.AuthToken != "" && baseURL.Scheme != schemeHTTPS && baseURL.Hostname() != "localhost" {
 		return nil, ErrTLSRequired
 	}
 
@@ -140,7 +140,7 @@ func (c *Client) newRequest(method, path, rawQuery string, body io.Reader) (r *h
 	}
 
 	// If auth token is used, verify TLS.
-	if c.AuthToken != "" && u.Scheme != schemeHTTPS && u.Host != "localhost" {
+	if c.AuthToken != "" && u.Scheme != schemeHTTPS && u.Hostname() != "localhost" {
 		return nil, ErrTLSRequired
 	}
 

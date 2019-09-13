@@ -39,6 +39,18 @@ func TestNewClient(t *testing.T) {
 			BaseURL:   "hkp://pool.sks-keyservers.net",
 			AuthToken: "blah",
 		}, true, "", "", "", nil},
+		{"LocalhostAuthTokenHTTP", &Config{
+			BaseURL:   "http://localhost",
+			AuthToken: "blah",
+		}, false, "http://localhost", "blah", "", http.DefaultClient},
+		{"LocalhostAuthTokenHTTP8080", &Config{
+			BaseURL:   "http://localhost:8080",
+			AuthToken: "blah",
+		}, false, "http://localhost:8080", "blah", "", http.DefaultClient},
+		{"LocalhostAuthTokenHKP", &Config{
+			BaseURL:   "hkp://localhost",
+			AuthToken: "blah",
+		}, false, "http://localhost:11371", "blah", "", http.DefaultClient},
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
 		{"HTTPBaseURL", &Config{
 			BaseURL: "http://p80.pool.sks-keyservers.net",
@@ -97,6 +109,18 @@ func TestNewRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	httpLocalhostURL, err := url.Parse("http://localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	http8080LocalhostURL, err := url.Parse("http://localhost:8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hkpLocalhostURL, err := url.Parse("hkp://localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
 	httpURL, err := url.Parse("http://p80.pool.sks-keyservers.net")
 	if err != nil {
 		t.Fatal(err)
@@ -135,6 +159,18 @@ func TestNewRequest(t *testing.T) {
 			BaseURL:   hkpURL,
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", true, "", "", ""},
+		{"LocalhostAuthTokenHTTP", &Client{
+			BaseURL:   httpLocalhostURL,
+			AuthToken: "blah",
+		}, http.MethodGet, "/path", "", "", false, "http://localhost/path", "BEARER blah", ""},
+		{"LocalhostAuthTokenHTTP8080", &Client{
+			BaseURL:   http8080LocalhostURL,
+			AuthToken: "blah",
+		}, http.MethodGet, "/path", "", "", false, "http://localhost:8080/path", "BEARER blah", ""},
+		{"LocalhostAuthTokenHKP", &Client{
+			BaseURL:   hkpLocalhostURL,
+			AuthToken: "blah",
+		}, http.MethodGet, "/path", "", "", false, "http://localhost:11371/path", "BEARER blah", ""},
 		{"Get", defaultClient, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"Post", defaultClient, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"PostRawQuery", defaultClient, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
