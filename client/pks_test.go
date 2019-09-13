@@ -331,7 +331,7 @@ func TestPKSLookup(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
-	fp := []byte{
+	search := []byte{
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 		0x10, 0x11, 0x12, 0x13,
@@ -339,8 +339,7 @@ func TestGetKey(t *testing.T) {
 
 	m := &MockPKSLookup{
 		t:        t,
-		search:   fmt.Sprintf("%#x", fp),
-		op:       "get",
+		op:       OperationGet,
 		exact:    true,
 		response: "Not valid, but it'll do for testing",
 	}
@@ -352,18 +351,23 @@ func TestGetKey(t *testing.T) {
 		baseURL string
 		code    int
 		message string
-		fp      []byte
+		search  []byte
 	}{
-		{"Success", s.URL, http.StatusOK, "", fp},
-		{"Error", s.URL, http.StatusBadRequest, "", fp},
-		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", fp},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", fp},
+		{"ShortKeyID", s.URL, http.StatusOK, "", search[len(search)-4:]},
+		{"KeyID", s.URL, http.StatusOK, "", search[len(search)-8:]},
+		{"V3Fingerprint", s.URL, http.StatusOK, "", search[len(search)-16:]},
+		{"V4Fingerprint", s.URL, http.StatusOK, "", search},
+		{"Error", s.URL, http.StatusBadRequest, "", search},
+		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", search},
+		{"BadURL", "http://127.0.0.1:123456", 0, "", search},
+		{"InvalidSearch", s.URL, 0, "", search[:1]},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
 			m.message = tt.message
+			m.search = fmt.Sprintf("%#x", tt.search)
 
 			c, err := NewClient(&Config{
 				BaseURL: tt.baseURL,
@@ -372,7 +376,7 @@ func TestGetKey(t *testing.T) {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			kt, err := c.GetKey(context.Background(), tt.fp)
+			kt, err := c.GetKey(context.Background(), tt.search)
 
 			if tt.code == http.StatusOK {
 				if err != nil {
