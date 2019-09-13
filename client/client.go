@@ -14,6 +14,13 @@ import (
 	"net/url"
 )
 
+const (
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+	schemeHKP   = "hkp"
+	schemeHKPS  = "hkps"
+)
+
 var (
 	// ErrTLSRequired is returned when an auth token is supplied with a non-TLS BaseURL.
 	ErrTLSRequired = errors.New("TLS required when auth token provided")
@@ -58,20 +65,20 @@ type Client struct {
 // error is returned.
 func normalizeURL(u *url.URL) (*url.URL, error) {
 	switch u.Scheme {
-	case "http", "https":
+	case schemeHTTP, schemeHTTPS:
 		return u, nil
-	case "hkp":
+	case schemeHKP:
 		// The HKP scheme is HTTP and implies port 11371.
 		newURL := *u
-		newURL.Scheme = "http"
+		newURL.Scheme = schemeHTTP
 		if u.Port() == "" {
 			newURL.Host = net.JoinHostPort(u.Hostname(), "11371")
 		}
 		return &newURL, nil
-	case "hkps":
+	case schemeHKPS:
 		// The HKPS scheme is HTTPS and implies port 443.
 		newURL := *u
-		newURL.Scheme = "https"
+		newURL.Scheme = schemeHTTPS
 		return &newURL, nil
 	default:
 		return nil, fmt.Errorf("unsupported protocol scheme %q", u.Scheme)
@@ -101,7 +108,7 @@ func NewClient(cfg *Config) (c *Client, err error) {
 	}
 
 	// If auth token is used, verify TLS.
-	if cfg.AuthToken != "" && baseURL.Scheme != "https" && baseURL.Host != "localhost" {
+	if cfg.AuthToken != "" && baseURL.Scheme != schemeHTTPS && baseURL.Host != "localhost" {
 		return nil, ErrTLSRequired
 	}
 
@@ -133,7 +140,7 @@ func (c *Client) newRequest(method, path, rawQuery string, body io.Reader) (r *h
 	}
 
 	// If auth token is used, verify TLS.
-	if c.AuthToken != "" && u.Scheme != "https" && u.Host != "localhost" {
+	if c.AuthToken != "" && u.Scheme != schemeHTTPS && u.Host != "localhost" {
 		return nil, ErrTLSRequired
 	}
 
