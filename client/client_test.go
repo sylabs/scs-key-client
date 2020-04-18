@@ -175,9 +175,24 @@ func TestNewRequest(t *testing.T) {
 		{"Post", defaultClient, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"PostRawQuery", defaultClient, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
 		{"PostBody", defaultClient, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
-		{"BaseURL", &Client{
+		{"BaseURLAbsolute", &Client{
 			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net"},
 		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
+		{"BaseURLRelative", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net"},
+		}, http.MethodGet, "path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
+		{"BaseURLPathAbsolute", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net", Path: "/a/b"},
+		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
+		{"BaseURLPathRelative", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net", Path: "/a/b"},
+		}, http.MethodGet, "path", "", "", false, "https://hkps.pool.sks-keyservers.net/a/path", "", ""},
+		{"BaseURLPathSlashAbsolute", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net", Path: "/a/b/"},
+		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
+		{"BaseURLPathSlashRelative", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net", Path: "/a/b/"},
+		}, http.MethodGet, "path", "", "", false, "https://hkps.pool.sks-keyservers.net/a/b/path", "", ""},
 		{"AuthToken", &Client{
 			BaseURL:   defaultClient.BaseURL,
 			AuthToken: "blah",
