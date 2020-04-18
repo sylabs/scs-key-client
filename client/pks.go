@@ -43,7 +43,7 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	v := url.Values{}
 	v.Set("keytext", keyText)
 
-	req, err := c.newRequest(http.MethodPost, pathPKSAdd, "", strings.NewReader(v.Encode()))
+	req, err := c.NewRequest(http.MethodPost, pathPKSAdd, "", strings.NewReader(v.Encode()))
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		}
 	}
 
-	req, err := c.newRequest(http.MethodGet, pathPKSLookup, v.Encode(), nil)
+	req, err := c.NewRequest(http.MethodGet, pathPKSLookup, v.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
