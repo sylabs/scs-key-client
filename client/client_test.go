@@ -9,9 +9,44 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestNormalizeURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     *url.URL
+		wantErr bool
+		wantURL *url.URL
+	}{
+		{"BadScheme", &url.URL{Scheme: "bad"}, true, nil},
+		{"HTTPBaseURL", &url.URL{Scheme: "http", Host: "p80.pool.sks-keyservers.net"},
+			false, &url.URL{Scheme: "http", Host: "p80.pool.sks-keyservers.net"}},
+		{"HTTPSBaseURL", &url.URL{Scheme: "https", Host: "hkps.pool.sks-keyservers.net"},
+			false, &url.URL{Scheme: "https", Host: "hkps.pool.sks-keyservers.net"}},
+		{"HKPBaseURL", &url.URL{Scheme: "hkp", Host: "pool.sks-keyservers.net"},
+			false, &url.URL{Scheme: "http", Host: "pool.sks-keyservers.net:11371"}},
+		{"HKPSBaseURL", &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net"},
+			false, &url.URL{Scheme: "https", Host: "hkps.pool.sks-keyservers.net"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := normalizeURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("got err %v, want %v", err, tt.wantErr)
+			}
+
+			if err == nil {
+				if got, want := u, tt.wantURL; !reflect.DeepEqual(got, want) {
+					t.Errorf("got url %v, want %v", got, want)
+				}
+			}
+		})
+	}
+}
 
 func TestNewClient(t *testing.T) {
 	httpClient := &http.Client{}
@@ -52,16 +87,7 @@ func TestNewClient(t *testing.T) {
 			AuthToken: "blah",
 		}, false, "http://localhost:11371", "blah", "", http.DefaultClient},
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
-		{"HTTPBaseURL", &Config{
-			BaseURL: "http://p80.pool.sks-keyservers.net",
-		}, false, "http://p80.pool.sks-keyservers.net", "", "", http.DefaultClient},
-		{"HTTPSBaseURL", &Config{
-			BaseURL: "https://hkps.pool.sks-keyservers.net",
-		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
-		{"HKPBaseURL", &Config{
-			BaseURL: "hkp://pool.sks-keyservers.net",
-		}, false, "http://pool.sks-keyservers.net:11371", "", "", http.DefaultClient},
-		{"HKPSBaseURL", &Config{
+		{"BaseURL", &Config{
 			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
 		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
 		{"AuthToken", &Config{
@@ -109,35 +135,6 @@ func TestNewRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	httpLocalhostURL, err := url.Parse("http://localhost")
-	if err != nil {
-		t.Fatal(err)
-	}
-	http8080LocalhostURL, err := url.Parse("http://localhost:8080")
-	if err != nil {
-		t.Fatal(err)
-	}
-	hkpLocalhostURL, err := url.Parse("hkp://localhost")
-	if err != nil {
-		t.Fatal(err)
-	}
-	httpURL, err := url.Parse("http://p80.pool.sks-keyservers.net")
-	if err != nil {
-		t.Fatal(err)
-	}
-	httpsURL, err := url.Parse("https://hkps.pool.sks-keyservers.net")
-	if err != nil {
-		t.Fatal(err)
-	}
-	hkpURL, err := url.Parse("hkp://pool.sks-keyservers.net")
-	if err != nil {
-		t.Fatal(err)
-	}
-	hkpsURL, err := url.Parse("hkps://hkps.pool.sks-keyservers.net")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tests := []struct {
 		name           string
 		client         *Client
@@ -151,41 +148,35 @@ func TestNewRequest(t *testing.T) {
 		wantUserAgent  string
 	}{
 		{"BadMethod", defaultClient, "b@d	", "", "", "", true, "", "", ""},
+		{"BadScheme", &Client{
+			BaseURL: &url.URL{Scheme: "bad", Host: "localhost"},
+		}, http.MethodGet, "/path", "", "", true, "", "", ""},
 		{"TLSRequiredHTTP", &Client{
-			BaseURL:   httpURL,
+			BaseURL:   &url.URL{Scheme: "http", Host: "p80.pool.sks-keyservers.net"},
 			AuthToken: "blah",
 		}, "", "", "", "", true, "", "", ""},
 		{"TLSRequiredHKP", &Client{
-			BaseURL:   hkpURL,
+			BaseURL:   &url.URL{Scheme: "hkp", Host: "pool.sks-keyservers.net"},
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", true, "", "", ""},
 		{"LocalhostAuthTokenHTTP", &Client{
-			BaseURL:   httpLocalhostURL,
+			BaseURL:   &url.URL{Scheme: "http", Host: "localhost"},
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", false, "http://localhost/path", "BEARER blah", ""},
 		{"LocalhostAuthTokenHTTP8080", &Client{
-			BaseURL:   http8080LocalhostURL,
+			BaseURL:   &url.URL{Scheme: "http", Host: "localhost:8080"},
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", false, "http://localhost:8080/path", "BEARER blah", ""},
 		{"LocalhostAuthTokenHKP", &Client{
-			BaseURL:   hkpLocalhostURL,
+			BaseURL:   &url.URL{Scheme: "hkp", Host: "localhost"},
 			AuthToken: "blah",
 		}, http.MethodGet, "/path", "", "", false, "http://localhost:11371/path", "BEARER blah", ""},
 		{"Get", defaultClient, http.MethodGet, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"Post", defaultClient, http.MethodPost, "/path", "", "", false, "https://keys.sylabs.io/path", "", ""},
 		{"PostRawQuery", defaultClient, http.MethodPost, "/path", "a=b", "", false, "https://keys.sylabs.io/path?a=b", "", ""},
 		{"PostBody", defaultClient, http.MethodPost, "/path", "", "body", false, "https://keys.sylabs.io/path", "", ""},
-		{"HTTPBaseURL", &Client{
-			BaseURL: httpURL,
-		}, http.MethodGet, "/path", "", "", false, "http://p80.pool.sks-keyservers.net/path", "", ""},
-		{"HTTPSBaseURL", &Client{
-			BaseURL: httpsURL,
-		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
-		{"HKPBaseURL", &Client{
-			BaseURL: hkpURL,
-		}, http.MethodGet, "/path", "", "", false, "http://pool.sks-keyservers.net:11371/path", "", ""},
-		{"HKPSBaseURL", &Client{
-			BaseURL: hkpsURL,
+		{"BaseURL", &Client{
+			BaseURL: &url.URL{Scheme: "hkps", Host: "hkps.pool.sks-keyservers.net"},
 		}, http.MethodGet, "/path", "", "", false, "https://hkps.pool.sks-keyservers.net/path", "", ""},
 		{"AuthToken", &Client{
 			BaseURL:   defaultClient.BaseURL,
