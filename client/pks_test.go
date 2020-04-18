@@ -68,6 +68,7 @@ func TestPKSAdd(t *testing.T) {
 		message string
 	}{
 		{"Success", s.URL, "key", http.StatusOK, ""},
+		{"SuccessPath", s.URL + "/path", "key", http.StatusOK, ""},
 		{"Error", s.URL, "key", http.StatusBadRequest, ""},
 		{"ErrorMessage", s.URL, "key", http.StatusBadRequest, "blah"},
 		{"BadURL", "http://127.0.0.1:123456", "key", 0, ""},
@@ -265,6 +266,7 @@ func TestPKSLookup(t *testing.T) {
 		{"VIndexMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
 		{"VIndexFingerprint", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, true, false, "", 0, ""},
 		{"VIndexExact", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, true, "", 0, ""},
+		{"BaseURLPath", s.URL + "/path", http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
 		{"Error", s.URL, http.StatusBadRequest, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
 		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", "search", OperationGet, []string{}, false, false, "", 0, ""},
 		{"BadURL", "http://127.0.0.1:123456", 0, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
@@ -357,6 +359,7 @@ func TestGetKey(t *testing.T) {
 		{"KeyID", s.URL, http.StatusOK, "", search[len(search)-8:]},
 		{"V3Fingerprint", s.URL, http.StatusOK, "", search[len(search)-16:]},
 		{"V4Fingerprint", s.URL, http.StatusOK, "", search},
+		{"BaseURLPath", s.URL + "/path", http.StatusOK, "", search},
 		{"Error", s.URL, http.StatusBadRequest, "", search},
 		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", search},
 		{"BadURL", "http://127.0.0.1:123456", 0, "", search},

@@ -15,9 +15,10 @@ import (
 )
 
 type MockVersion struct {
-	t       *testing.T
-	code    int
-	version string
+	t        *testing.T
+	code     int
+	wantPath string
+	version  string
 }
 
 func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +29,7 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, pathVersion; got != want {
+	if got, want := r.URL.Path, m.wantPath; got != want {
 		m.t.Errorf("got path %v, want %v", got, want)
 	}
 
@@ -52,19 +53,22 @@ func TestGetVersion(t *testing.T) {
 	defer s.Close()
 
 	tests := []struct {
-		name    string
-		baseURL string
-		code    int
-		version string
+		name     string
+		baseURL  string
+		code     int
+		wantPath string
+		version  string
 	}{
-		{"Success", s.URL, http.StatusOK, "1.2.3"},
-		{"JSONError", s.URL, http.StatusBadRequest, ""},
-		{"BadURL", "http://127.0.0.1:123456", 0, ""},
+		{"Success", s.URL, http.StatusOK, "/version", "1.2.3"},
+		{"SuccessPath", s.URL + "/path", http.StatusOK, "/path/version", "1.2.3"},
+		{"JSONError", s.URL, http.StatusBadRequest, "", ""},
+		{"BadURL", "http://127.0.0.1:123456", 0, "", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m.code = tt.code
+			m.wantPath = tt.wantPath
 			m.version = tt.version
 
 			c, err := NewClient(&Config{

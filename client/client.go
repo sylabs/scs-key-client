@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 const (
@@ -85,7 +86,7 @@ func normalizeURL(u *url.URL) (*url.URL, error) {
 	}
 }
 
-const defaultBaseURL = "https://keys.sylabs.io"
+const defaultBaseURL = "https://keys.sylabs.io/"
 
 // NewClient sets up a new Key Service client with the specified base URL and auth token.
 func NewClient(cfg *Config) (c *Client, err error) {
@@ -105,6 +106,12 @@ func NewClient(cfg *Config) (c *Client, err error) {
 	baseURL, err = normalizeURL(baseURL)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure path is terminated with a separator, to prevent url.ResolveReference from stripping
+	// the final path component of BaseURL when constructing request URL from a relative path.
+	if !strings.HasSuffix(baseURL.Path, "/") {
+		baseURL.Path += "/"
 	}
 
 	// If auth token is used, verify TLS.
