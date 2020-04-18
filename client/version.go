@@ -12,7 +12,7 @@ import (
 	jsonresp "github.com/sylabs/json-resp"
 )
 
-const pathVersion = "/version"
+const pathVersion = "version"
 
 // VersionInfo contains version information.
 type VersionInfo struct {
