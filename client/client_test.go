@@ -77,19 +77,28 @@ func TestNewClient(t *testing.T) {
 		{"LocalhostAuthTokenHTTP", &Config{
 			BaseURL:   "http://localhost",
 			AuthToken: "blah",
-		}, false, "http://localhost", "blah", "", http.DefaultClient},
+		}, false, "http://localhost/", "blah", "", http.DefaultClient},
 		{"LocalhostAuthTokenHTTP8080", &Config{
 			BaseURL:   "http://localhost:8080",
 			AuthToken: "blah",
-		}, false, "http://localhost:8080", "blah", "", http.DefaultClient},
+		}, false, "http://localhost:8080/", "blah", "", http.DefaultClient},
 		{"LocalhostAuthTokenHKP", &Config{
 			BaseURL:   "hkp://localhost",
 			AuthToken: "blah",
-		}, false, "http://localhost:11371", "blah", "", http.DefaultClient},
+		}, false, "http://localhost:11371/", "blah", "", http.DefaultClient},
 		{"NilConfig", nil, false, defaultBaseURL, "", "", http.DefaultClient},
 		{"BaseURL", &Config{
 			BaseURL: "hkps://hkps.pool.sks-keyservers.net",
-		}, false, "https://hkps.pool.sks-keyservers.net", "", "", http.DefaultClient},
+		}, false, "https://hkps.pool.sks-keyservers.net/", "", "", http.DefaultClient},
+		{"BaseURLSlash", &Config{
+			BaseURL: "hkps://hkps.pool.sks-keyservers.net/",
+		}, false, "https://hkps.pool.sks-keyservers.net/", "", "", http.DefaultClient},
+		{"BaseURLWithPath", &Config{
+			BaseURL: "hkps://hkps.pool.sks-keyservers.net/path",
+		}, false, "https://hkps.pool.sks-keyservers.net/path/", "", "", http.DefaultClient},
+		{"BaseURLWithPathSlash", &Config{
+			BaseURL: "hkps://hkps.pool.sks-keyservers.net/path/",
+		}, false, "https://hkps.pool.sks-keyservers.net/path/", "", "", http.DefaultClient},
 		{"AuthToken", &Config{
 			AuthToken: "blah",
 		}, false, defaultBaseURL, "blah", "", http.DefaultClient},
