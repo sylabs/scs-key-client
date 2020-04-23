@@ -37,8 +37,10 @@ func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, pathPKSAdd; got != want {
-		m.t.Errorf("got path %v, want %v", got, want)
+	expectedPath := "/" + pathPKSAdd
+
+	if !strings.HasSuffix(r.URL.Path, expectedPath) {
+		m.t.Errorf("got path %v, expected %v", r.URL.Path, expectedPath)
 	}
 
 	if got, want := r.Header.Get("Content-Type"), "application/x-www-form-urlencoded"; got != want {
@@ -139,8 +141,10 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if got, want := r.URL.Path, pathPKSLookup; got != want {
-		m.t.Errorf("got path %v, want %v", got, want)
+	expectedPath := "/" + pathPKSLookup
+
+	if !strings.HasSuffix(r.URL.Path, expectedPath) {
+		m.t.Errorf("got path %v, want %v", r.URL.Path, expectedPath)
 	}
 
 	if got, want := r.ContentLength, int64(0); got != want {
