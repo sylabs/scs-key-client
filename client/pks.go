@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	pathPKSAdd    = "/pks/add"
-	pathPKSLookup = "/pks/lookup"
+	pathPKSAdd    = "pks/add"
+	pathPKSLookup = "pks/lookup"
 )
 
 var (
