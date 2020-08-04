@@ -4,7 +4,6 @@
 [![Build Status](https://circleci.com/gh/sylabs/scs-key-client.svg?style=shield)](https://circleci.com/gh/sylabs/workflows/scs-key-client)
 [![Code Coverage](https://codecov.io/gh/sylabs/scs-key-client/branch/master/graph/badge.svg)](https://codecov.io/gh/sylabs/scs-key-client)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sylabs/scs-key-client)](https://goreportcard.com/report/github.com/sylabs/scs-key-client)
-[![Dependabot](https://flat.badgen.net/dependabot/sylabs/scs-key-client?icon=dependabot)](https://github.com/sylabs/scs-key-client/network/updates)
 
 This project provides a Go client for the Singularity Container Services (SCS) Key Service.
 
