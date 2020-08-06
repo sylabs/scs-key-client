@@ -39,7 +39,7 @@ func (c *Client) GetVersion(ctx context.Context) (vi VersionInfo, err error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode/100 != 2 { // non-2xx status code
 		return VersionInfo{}, fmt.Errorf("%w", errorFromResponse(res))
 	}
 

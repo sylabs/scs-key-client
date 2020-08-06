@@ -57,7 +57,7 @@ func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode/100 != 2 { // non-2xx status code
 		return fmt.Errorf("%w", errorFromResponse(res))
 	}
 	return nil
@@ -129,7 +129,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode/100 != 2 { // non-2xx status code
 		return "", fmt.Errorf("%w", errorFromResponse(res))
 	}
 

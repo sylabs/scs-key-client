@@ -24,7 +24,7 @@ type MockVersion struct {
 }
 
 func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
+	if m.code/100 != 2 { // non-2xx status code
 		if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 			m.t.Fatalf("failed to write error: %v", err)
 		}
@@ -74,6 +74,13 @@ func TestGetVersion(t *testing.T) {
 			ctx:      context.Background(),
 			code:     http.StatusOK,
 			wantPath: "/path/version",
+			version:  "1.2.3",
+		},
+		{
+			name:     "NonAuthoritativeInfo",
+			ctx:      context.Background(),
+			code:     http.StatusNonAuthoritativeInfo,
+			wantPath: "/version",
 			version:  "1.2.3",
 		},
 		{

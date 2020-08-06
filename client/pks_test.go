@@ -27,7 +27,7 @@ type MockPKSAdd struct {
 }
 
 func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
+	if m.code/100 != 2 { // non-2xx status code
 		if m.message != "" {
 			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 				m.t.Fatalf("failed to write error: %v", err)
@@ -71,6 +71,12 @@ func TestPKSAdd(t *testing.T) {
 			ctx:     context.Background(),
 			keyText: "key",
 			code:    http.StatusOK,
+		},
+		{
+			name:    "Accepted",
+			ctx:     context.Background(),
+			keyText: "key",
+			code:    http.StatusAccepted,
 		},
 		{
 			name:    "HTTPError",
@@ -145,7 +151,7 @@ type MockPKSLookup struct {
 }
 
 func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
+	if m.code/100 != 2 { // non-2xx status code
 		if m.message != "" {
 			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 				m.t.Fatalf("failed to write error: %v", err)
@@ -430,6 +436,13 @@ func TestPKSLookup(t *testing.T) {
 			exact:  true,
 		},
 		{
+			name:   "NonAuthoritativeInfo",
+			ctx:    context.Background(),
+			code:   http.StatusNonAuthoritativeInfo,
+			search: "search",
+			op:     OperationGet,
+		},
+		{
 			name:    "HTTPError",
 			ctx:     context.Background(),
 			code:    http.StatusBadRequest,
@@ -563,6 +576,12 @@ func TestGetKey(t *testing.T) {
 			name:   "V4Fingerprint",
 			ctx:    context.Background(),
 			code:   http.StatusOK,
+			search: search,
+		},
+		{
+			name:   "NonAuthoritativeInfo",
+			ctx:    context.Background(),
+			code:   http.StatusNonAuthoritativeInfo,
 			search: search,
 		},
 		{
