@@ -39,7 +39,9 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.t.Errorf("got content length %v, want %v", got, want)
 	}
 
-	vi := VersionInfo{
+	vi := struct {
+		Version string `json:"version"`
+	}{
 		Version: m.version,
 	}
 	if err := jsonresp.WriteResponse(w, vi, m.code); err != nil {
@@ -123,14 +125,14 @@ func TestGetVersion(t *testing.T) {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			vi, err := c.GetVersion(tt.ctx)
+			v, err := c.GetVersion(tt.ctx)
 
 			if got, want := err, tt.wantErr; !errors.Is(got, want) {
 				t.Fatalf("got error %v, want %v", got, want)
 			}
 
 			if err == nil {
-				if got, want := vi.Version, tt.version; got != want {
+				if got, want := v, tt.version; got != want {
 					t.Errorf("got version %v, want %v", got, want)
 				}
 			}

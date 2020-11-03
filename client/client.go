@@ -70,38 +70,38 @@ type clientOptions struct {
 	httpClient  *http.Client
 }
 
-// Option are used to configure c.
-type Option func(c *clientOptions) error
+// Option are used to populate co.
+type Option func(co *clientOptions) error
 
 // OptBaseURL sets the base URL of the key server to url. The supported URL schemes are "http",
 // "https", "hkp", and "hkps".
 func OptBaseURL(url string) Option {
-	return func(opts *clientOptions) error {
-		opts.baseURL = url
+	return func(co *clientOptions) error {
+		co.baseURL = url
 		return nil
 	}
 }
 
 // OptBearerToken sets the bearer token to include in the "Authorization" header of each request.
 func OptBearerToken(token string) Option {
-	return func(opts *clientOptions) error {
-		opts.bearerToken = token
+	return func(co *clientOptions) error {
+		co.bearerToken = token
 		return nil
 	}
 }
 
 // OptUserAgent sets the HTTP user agent to include in the "User-Agent" header of each request.
 func OptUserAgent(agent string) Option {
-	return func(opts *clientOptions) error {
-		opts.userAgent = agent
+	return func(co *clientOptions) error {
+		co.userAgent = agent
 		return nil
 	}
 }
 
 // OptHTTPClient sets the client to use to make HTTP requests.
 func OptHTTPClient(c *http.Client) Option {
-	return func(opts *clientOptions) error {
-		opts.httpClient = c
+	return func(co *clientOptions) error {
+		co.httpClient = c
 		return nil
 	}
 }
