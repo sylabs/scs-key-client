@@ -1,4 +1,4 @@
-// Copyright (c) 2019, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,7 +27,7 @@ type MockPKSAdd struct {
 }
 
 func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
+	if m.code/100 != 2 { // non-2xx status code
 		if m.message != "" {
 			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 				m.t.Fatalf("failed to write error: %v", err)
@@ -54,59 +55,81 @@ func (m *MockPKSAdd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestPKSAdd(t *testing.T) {
-	m := &MockPKSAdd{
-		t: t,
-	}
-	s := httptest.NewServer(m)
-	defer s.Close()
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	tests := []struct {
 		name    string
-		baseURL string
+		ctx     context.Context
 		keyText string
 		code    int
 		message string
+		wantErr error
 	}{
-		{"Success", s.URL, "key", http.StatusOK, ""},
-		{"SuccessPath", s.URL + "/path", "key", http.StatusOK, ""},
-		{"Error", s.URL, "key", http.StatusBadRequest, ""},
-		{"ErrorMessage", s.URL, "key", http.StatusBadRequest, "blah"},
-		{"BadURL", "http://127.0.0.1:123456", "key", 0, ""},
-		{"InvalidKeyText", s.URL, "", 0, ""},
+		{
+			name:    "OK",
+			ctx:     context.Background(),
+			keyText: "key",
+			code:    http.StatusOK,
+		},
+		{
+			name:    "Accepted",
+			ctx:     context.Background(),
+			keyText: "key",
+			code:    http.StatusAccepted,
+		},
+		{
+			name:    "HTTPError",
+			ctx:     context.Background(),
+			keyText: "key",
+			code:    http.StatusBadRequest,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "HTTPErrorMessage",
+			ctx:     context.Background(),
+			keyText: "key",
+			code:    http.StatusBadRequest,
+			message: "blah",
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "ContextCanceled",
+			ctx:     cancelled,
+			keyText: "key",
+			code:    http.StatusOK,
+			wantErr: context.Canceled,
+		},
+		{
+			name:    "InvalidKeyText",
+			ctx:     context.Background(),
+			keyText: "",
+			wantErr: ErrInvalidKeyText,
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m.code = tt.code
-			m.message = tt.message
-			m.keyText = tt.keyText
+			t.Parallel()
 
-			c, err := NewClient(&Config{
-				BaseURL: tt.baseURL,
+			s := httptest.NewServer(&MockPKSAdd{
+				t:       t,
+				code:    tt.code,
+				message: tt.message,
+				keyText: tt.keyText,
 			})
+			defer s.Close()
+
+			c, err := NewClient(OptBaseURL(s.URL))
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			err = c.PKSAdd(context.Background(), tt.keyText)
+			err = c.PKSAdd(tt.ctx, tt.keyText)
 
-			if tt.code == http.StatusOK {
-				if err != nil {
-					t.Fatalf("failed to do PKS add: %v", err)
-				}
-			} else {
-				if err == nil {
-					t.Fatalf("unexpected success")
-				}
-				if tt.code != 0 {
-					if err, ok := err.(*jsonresp.Error); !ok {
-						t.Fatalf("failed to cast to jsonresp.Error")
-					} else if got, want := err.Code, tt.code; got != want {
-						t.Errorf("got code %v, want %v", got, want)
-					} else if got, want := err.Message, tt.message; got != want {
-						t.Errorf("got message %v, want %v", got, want)
-					}
-				}
+			if got, want := err, tt.wantErr; !errors.Is(got, want) {
+				t.Fatalf("got error %v, want %v", got, want)
 			}
 		})
 	}
@@ -128,7 +151,7 @@ type MockPKSLookup struct {
 }
 
 func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
+	if m.code/100 != 2 { // non-2xx status code
 		if m.message != "" {
 			if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 				m.t.Fatalf("failed to write error: %v", err)
@@ -224,16 +247,12 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestPKSLookup(t *testing.T) {
-	m := &MockPKSLookup{
-		t:        t,
-		response: "Not valid, but it'll do for testing",
-	}
-	s := httptest.NewServer(m)
-	defer s.Close()
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	tests := []struct {
 		name          string
-		baseURL       string
+		ctx           context.Context
 		code          int
 		message       string
 		search        string
@@ -244,56 +263,253 @@ func TestPKSLookup(t *testing.T) {
 		pageToken     string
 		pageSize      int
 		nextPageToken string
+		wantErr       error
 	}{
-		{"Get", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"GetNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, "bar"},
-		{"GetSize", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 42, ""},
-		{"GetSizeNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 42, "bar"},
-		{"GetPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 0, ""},
-		{"GetPTNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 0, "bar"},
-		{"GetPTSize", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, ""},
-		{"GetPTSizeNPT", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, false, "foo", 42, "bar"},
-		{"GetMachineReadable", s.URL, http.StatusOK, "", "search", OperationGet, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"GetMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationGet, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
-		{"GetExact", s.URL, http.StatusOK, "", "search", OperationGet, []string{}, false, true, "", 0, ""},
-		{"Index", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, false, "", 0, ""},
-		{"IndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"IndexMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationIndex, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
-		{"IndexFingerprint", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, true, false, "", 0, ""},
-		{"IndexExact", s.URL, http.StatusOK, "", "search", OperationIndex, []string{}, false, true, "", 0, ""},
-		{"VIndex", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, false, "", 0, ""},
-		{"VIndexMachineReadable", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable}, false, false, "", 0, ""},
-		{"VIndexMachineReadableBlah", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{OptionMachineReadable, "blah"}, false, false, "", 0, ""},
-		{"VIndexFingerprint", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, true, false, "", 0, ""},
-		{"VIndexExact", s.URL, http.StatusOK, "", "search", OperationVIndex, []string{}, false, true, "", 0, ""},
-		{"BaseURLPath", s.URL + "/path", http.StatusOK, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"Error", s.URL, http.StatusBadRequest, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", "search", OperationGet, []string{}, false, false, "", 0, ""},
-		{"InvalidSearch", s.URL, 0, "", "", OperationGet, []string{}, false, false, "", 0, ""},
-		{"InvalidOperation", s.URL, 0, "", "search", "", []string{}, false, false, "", 0, ""},
+		{
+			name:   "Get",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationGet,
+		},
+		{
+			name:          "GetNPT",
+			ctx:           context.Background(),
+			code:          http.StatusOK,
+			search:        "search",
+			op:            OperationGet,
+			nextPageToken: "bar",
+		},
+		{
+			name:     "GetSize",
+			ctx:      context.Background(),
+			code:     http.StatusOK,
+			search:   "search",
+			op:       OperationGet,
+			pageSize: 42,
+		},
+		{
+			name:          "GetSizeNPT",
+			ctx:           context.Background(),
+			code:          http.StatusOK,
+			search:        "search",
+			op:            OperationGet,
+			pageSize:      42,
+			nextPageToken: "bar",
+		},
+		{
+			name:      "GetPT",
+			ctx:       context.Background(),
+			code:      http.StatusOK,
+			search:    "search",
+			op:        OperationGet,
+			pageToken: "foo",
+		},
+		{
+			name:          "GetPTNPT",
+			ctx:           context.Background(),
+			code:          http.StatusOK,
+			search:        "search",
+			op:            OperationGet,
+			pageToken:     "foo",
+			nextPageToken: "bar",
+		},
+		{
+			name:      "GetPTSize",
+			ctx:       context.Background(),
+			code:      http.StatusOK,
+			search:    "search",
+			op:        OperationGet,
+			pageToken: "foo",
+			pageSize:  42,
+		},
+		{
+			name:          "GetPTSizeNPT",
+			ctx:           context.Background(),
+			code:          http.StatusOK,
+			search:        "search",
+			op:            OperationGet,
+			pageToken:     "foo",
+			pageSize:      42,
+			nextPageToken: "bar",
+		},
+		{
+			name:    "GetMachineReadable",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationGet,
+			options: []string{OptionMachineReadable},
+		},
+		{
+			name:    "GetMachineReadableBlah",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationGet,
+			options: []string{OptionMachineReadable, "blah"},
+		},
+		{
+			name:   "GetExact",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationGet,
+			exact:  true,
+		},
+		{
+			name:   "Index",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationIndex,
+		},
+		{
+			name:    "IndexMachineReadable",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationIndex,
+			options: []string{OptionMachineReadable},
+		},
+		{
+			name:    "IndexMachineReadableBlah",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationIndex,
+			options: []string{OptionMachineReadable, "blah"},
+		},
+		{
+			name:        "IndexFingerprint",
+			ctx:         context.Background(),
+			code:        http.StatusOK,
+			search:      "search",
+			op:          OperationIndex,
+			fingerprint: true,
+		},
+		{
+			name:   "IndexExact",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationIndex,
+			exact:  true,
+		},
+		{
+			name:   "VIndex",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationVIndex,
+		},
+		{
+			name:    "VIndexMachineReadable",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationVIndex,
+			options: []string{OptionMachineReadable},
+		},
+		{
+			name:    "VIndexMachineReadableBlah",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationVIndex,
+			options: []string{OptionMachineReadable, "blah"},
+		},
+		{
+			name:        "VIndexFingerprint",
+			ctx:         context.Background(),
+			code:        http.StatusOK,
+			search:      "search",
+			op:          OperationVIndex,
+			fingerprint: true,
+		},
+		{
+			name:   "VIndexExact",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: "search",
+			op:     OperationVIndex,
+			exact:  true,
+		},
+		{
+			name:   "NonAuthoritativeInfo",
+			ctx:    context.Background(),
+			code:   http.StatusNonAuthoritativeInfo,
+			search: "search",
+			op:     OperationGet,
+		},
+		{
+			name:    "HTTPError",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			search:  "search",
+			op:      OperationGet,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "HTTPErrorMessage",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			message: "blah",
+			search:  "search",
+			op:      OperationGet,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "ContextCanceled",
+			ctx:     cancelled,
+			code:    http.StatusOK,
+			search:  "search",
+			op:      OperationGet,
+			wantErr: context.Canceled,
+		},
+		{
+			name:    "InvalidSearch",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			op:      OperationGet,
+			wantErr: ErrInvalidSearch,
+		},
+		{
+			name:    "InvalidOperation",
+			ctx:     context.Background(),
+			code:    http.StatusOK,
+			search:  "search",
+			options: []string{},
+			wantErr: ErrInvalidOperation,
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m.code = tt.code
-			m.message = tt.message
-			m.search = tt.search
-			m.op = tt.op
-			m.options = strings.Join(tt.options, ",")
-			m.fingerprint = tt.fingerprint
-			m.exact = tt.exact
-			m.pageToken = tt.pageToken
-			if tt.pageSize == 0 {
-				m.pageSize = ""
-			} else {
+			t.Parallel()
+
+			m := MockPKSLookup{
+				t:             t,
+				response:      "Not valid, but it'll do for testing",
+				code:          tt.code,
+				message:       tt.message,
+				search:        tt.search,
+				op:            tt.op,
+				options:       strings.Join(tt.options, ","),
+				fingerprint:   tt.fingerprint,
+				exact:         tt.exact,
+				pageToken:     tt.pageToken,
+				nextPageToken: tt.nextPageToken,
+			}
+			if tt.pageSize != 0 {
 				m.pageSize = strconv.Itoa(tt.pageSize)
 			}
-			m.nextPageToken = tt.nextPageToken
 
-			c, err := NewClient(&Config{
-				BaseURL: tt.baseURL,
-			})
+			s := httptest.NewServer(&m)
+			defer s.Close()
+
+			c, err := NewClient(OptBaseURL(s.URL))
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
@@ -302,30 +518,18 @@ func TestPKSLookup(t *testing.T) {
 				Token: tt.pageToken,
 				Size:  tt.pageSize,
 			}
-			r, err := c.PKSLookup(context.Background(), &pd, tt.search, tt.op, tt.fingerprint, tt.exact, tt.options)
+			r, err := c.PKSLookup(tt.ctx, &pd, tt.search, tt.op, tt.fingerprint, tt.exact, tt.options)
 
-			if tt.code == http.StatusOK {
-				if err != nil {
-					t.Fatalf("failed to do PKS lookup: %v", err)
-				}
+			if got, want := err, tt.wantErr; !errors.Is(got, want) {
+				t.Fatalf("got error %v, want %v", got, want)
+			}
+
+			if err == nil {
 				if got, want := pd.Token, tt.nextPageToken; got != want {
 					t.Errorf("got page token %v, want %v", got, want)
 				}
 				if got, want := r, m.response; got != want {
 					t.Errorf("got response %v, want %v", got, want)
-				}
-			} else {
-				if err == nil {
-					t.Fatalf("unexpected success")
-				}
-				if 0 != tt.code {
-					if err, ok := err.(*jsonresp.Error); !ok {
-						t.Fatalf("failed to cast to jsonresp.Error")
-					} else if got, want := err.Code, tt.code; got != want {
-						t.Errorf("got code %v, want %v", got, want)
-					} else if got, want := err.Message, tt.message; got != want {
-						t.Errorf("got message %v, want %v", got, want)
-					}
 				}
 			}
 		})
@@ -339,67 +543,109 @@ func TestGetKey(t *testing.T) {
 		0x10, 0x11, 0x12, 0x13,
 	}
 
-	m := &MockPKSLookup{
-		t:        t,
-		op:       OperationGet,
-		exact:    true,
-		response: "Not valid, but it'll do for testing",
-	}
-	s := httptest.NewServer(m)
-	defer s.Close()
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	tests := []struct {
 		name    string
-		baseURL string
+		ctx     context.Context
 		code    int
 		message string
 		search  []byte
+		wantErr error
 	}{
-		{"ShortKeyID", s.URL, http.StatusOK, "", search[len(search)-4:]},
-		{"KeyID", s.URL, http.StatusOK, "", search[len(search)-8:]},
-		{"V3Fingerprint", s.URL, http.StatusOK, "", search[len(search)-16:]},
-		{"V4Fingerprint", s.URL, http.StatusOK, "", search},
-		{"BaseURLPath", s.URL + "/path", http.StatusOK, "", search},
-		{"Error", s.URL, http.StatusBadRequest, "", search},
-		{"ErrorMessage", s.URL, http.StatusBadRequest, "blah", search},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", search},
-		{"InvalidSearch", s.URL, 0, "", search[:1]},
+		{
+			name:   "ShortKeyID",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: search[len(search)-4:],
+		},
+		{
+			name:   "KeyID",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: search[len(search)-8:],
+		},
+		{
+			name:   "V3Fingerprint",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: search[len(search)-16:],
+		},
+		{
+			name:   "V4Fingerprint",
+			ctx:    context.Background(),
+			code:   http.StatusOK,
+			search: search,
+		},
+		{
+			name:   "NonAuthoritativeInfo",
+			ctx:    context.Background(),
+			code:   http.StatusNonAuthoritativeInfo,
+			search: search,
+		},
+		{
+			name:    "HTTPError",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			search:  search,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "HTTPErrorMessage",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			message: "blah",
+			search:  search,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "ContextCanceled",
+			ctx:     cancelled,
+			code:    http.StatusOK,
+			search:  search,
+			wantErr: context.Canceled,
+		},
+		{
+			name:    "InvalidSearch",
+			ctx:     context.Background(),
+			search:  search[:1],
+			wantErr: ErrInvalidSearch,
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m.code = tt.code
-			m.message = tt.message
-			m.search = fmt.Sprintf("%#x", tt.search)
+			t.Parallel()
 
-			c, err := NewClient(&Config{
-				BaseURL: tt.baseURL,
-			})
+			m := MockPKSLookup{
+				t:        t,
+				code:     tt.code,
+				message:  tt.message,
+				search:   fmt.Sprintf("%#x", tt.search),
+				op:       OperationGet,
+				exact:    true,
+				response: "Not valid, but it'll do for testing",
+			}
+
+			s := httptest.NewServer(&m)
+			defer s.Close()
+
+			c, err := NewClient(OptBaseURL(s.URL))
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			kt, err := c.GetKey(context.Background(), tt.search)
+			kt, err := c.GetKey(tt.ctx, tt.search)
 
-			if tt.code == http.StatusOK {
-				if err != nil {
-					t.Fatalf("failed to get key: %v", err)
-				}
+			if got, want := err, tt.wantErr; !errors.Is(got, want) {
+				t.Fatalf("got error %v, want %v", got, want)
+			}
+
+			if err == nil {
 				if got, want := kt, m.response; got != want {
 					t.Errorf("got keyText %v, want %v", got, want)
-				}
-			} else {
-				if err == nil {
-					t.Fatalf("unexpected success")
-				}
-				if tt.code != 0 {
-					if err, ok := err.(*jsonresp.Error); !ok {
-						t.Fatalf("failed to cast to jsonresp.Error")
-					} else if got, want := err.Code, tt.code; got != want {
-						t.Errorf("got code %v, want %v", got, want)
-					} else if got, want := err.Message, tt.message; got != want {
-						t.Errorf("got message %v, want %v", got, want)
-					}
 				}
 			}
 		})

@@ -1,4 +1,4 @@
-// Copyright (c) 2019, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -7,34 +7,42 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 
 	jsonresp "github.com/sylabs/json-resp"
 )
 
 const pathVersion = "version"
 
-// VersionInfo contains version information.
-type VersionInfo struct {
-	Version string `json:"version"`
-}
-
 // GetVersion gets version information from the Key Service. The context controls the lifetime of
 // the request.
-func (c *Client) GetVersion(ctx context.Context) (vi VersionInfo, err error) {
-	req, err := c.NewRequest(http.MethodGet, pathVersion, "", nil)
+//
+// If an non-200 HTTP status code is received, an error wrapping an HTTPError is returned.
+func (c *Client) GetVersion(ctx context.Context) (string, error) {
+	ref := &url.URL{Path: pathVersion}
+
+	req, err := c.NewRequest(ctx, http.MethodGet, ref, nil)
 	if err != nil {
-		return VersionInfo{}, err
+		return "", fmt.Errorf("%w", err)
 	}
 
-	res, err := c.HTTPClient.Do(req.WithContext(ctx))
+	res, err := c.Do(req)
 	if err != nil {
-		return VersionInfo{}, err
+		return "", fmt.Errorf("%w", err)
 	}
 	defer res.Body.Close()
 
-	if err := jsonresp.ReadResponse(res.Body, &vi); err != nil {
-		return VersionInfo{}, err
+	if res.StatusCode/100 != 2 { // non-2xx status code
+		return "", fmt.Errorf("%w", errorFromResponse(res))
 	}
-	return vi, nil
+
+	vi := struct {
+		Version string `json:"version"`
+	}{}
+	if err := jsonresp.ReadResponse(res.Body, &vi); err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	return vi.Version, nil
 }

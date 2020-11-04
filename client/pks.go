@@ -1,4 +1,4 @@
-// Copyright (c) 2019, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -14,8 +14,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
-	jsonresp "github.com/sylabs/json-resp"
 )
 
 const (
@@ -23,45 +21,54 @@ const (
 	pathPKSLookup = "/pks/lookup"
 )
 
-var (
-	// ErrInvalidKeyText is returned when the key text is invalid.
-	ErrInvalidKeyText = errors.New("invalid key text")
-	// ErrInvalidSearch is returned when the search value is invalid.
-	ErrInvalidSearch = errors.New("invalid search")
-	// ErrInvalidOperation is returned when the operation is invalid.
-	ErrInvalidOperation = errors.New("invalid operation")
-)
+// ErrInvalidKeyText is returned when the key text is invalid.
+var ErrInvalidKeyText = errors.New("invalid key text")
+
+// ErrInvalidSearch is returned when the search value is invalid.
+var ErrInvalidSearch = errors.New("invalid search")
+
+// ErrInvalidOperation is returned when the operation is invalid.
+var ErrInvalidOperation = errors.New("invalid operation")
 
 // PKSAdd submits an ASCII armored keyring to the Key Service, as specified in section 4 of the
 // OpenPGP HTTP Keyserver Protocol (HKP) specification. The context controls the lifetime of the
 // request.
+//
+// If an non-200 HTTP status code is received, an error wrapping an HTTPError is returned.
 func (c *Client) PKSAdd(ctx context.Context, keyText string) error {
 	if keyText == "" {
-		return ErrInvalidKeyText
+		return fmt.Errorf("%w", ErrInvalidKeyText)
 	}
+
+	ref := &url.URL{Path: pathPKSAdd}
 
 	v := url.Values{}
 	v.Set("keytext", keyText)
 
-	req, err := c.NewRequest(http.MethodPost, pathPKSAdd, "", strings.NewReader(v.Encode()))
+	req, err := c.NewRequest(ctx, http.MethodPost, ref, strings.NewReader(v.Encode()))
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	res, err := c.HTTPClient.Do(req.WithContext(ctx))
+	res, err := c.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		if err := jsonresp.ReadError(res.Body); err != nil {
-			return err
-		}
-		return jsonresp.NewError(res.StatusCode, "")
+	if res.StatusCode/100 != 2 { // non-2xx status code
+		return fmt.Errorf("%w", errorFromResponse(res))
 	}
 	return nil
+}
+
+// PageDetails includes pagination details.
+type PageDetails struct {
+	// Maximum number of results per page (server may ignore or return fewer).
+	Size int
+	// Token for next page (advanced with each request, empty for last page).
+	Token string
 }
 
 const (
@@ -78,12 +85,14 @@ const OptionMachineReadable = "mr"
 
 // PKSLookup requests data from the Key Service, as specified in section 3 of the OpenPGP HTTP
 // Keyserver Protocol (HKP) specification. The context controls the lifetime of the request.
+//
+// If an non-200 HTTP status code is received, an error wrapping an HTTPError is returned.
 func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operation string, fingerprint, exact bool, options []string) (response string, err error) {
 	if search == "" {
-		return "", ErrInvalidSearch
+		return "", fmt.Errorf("%w", ErrInvalidSearch)
 	}
 	if operation == "" {
-		return "", ErrInvalidOperation
+		return "", fmt.Errorf("%w", ErrInvalidOperation)
 	}
 
 	v := url.Values{}
@@ -107,22 +116,21 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		}
 	}
 
-	req, err := c.NewRequest(http.MethodGet, pathPKSLookup, v.Encode(), nil)
+	ref := &url.URL{Path: pathPKSLookup, RawQuery: v.Encode()}
+
+	req, err := c.NewRequest(ctx, http.MethodGet, ref, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w", err)
 	}
 
-	res, err := c.HTTPClient.Do(req.WithContext(ctx))
+	res, err := c.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w", err)
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		if err := jsonresp.ReadError(res.Body); err != nil {
-			return "", err
-		}
-		return "", jsonresp.NewError(res.StatusCode, "")
+	if res.StatusCode/100 != 2 { // non-2xx status code
+		return "", fmt.Errorf("%w", errorFromResponse(res))
 	}
 
 	if pd != nil {
@@ -131,7 +139,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w", err)
 	}
 	return string(body), nil
 }
@@ -139,11 +147,13 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 // GetKey retrieves an ASCII armored keyring matching search from the Key Service. A 32-bit key ID,
 // 64-bit key ID, 128-bit version 3 fingerprint, or 160-bit version 4 fingerprint can be specified
 // in search. The context controls the lifetime of the request.
+//
+// If an non-200 HTTP status code is received, an error wrapping an HTTPError is returned.
 func (c *Client) GetKey(ctx context.Context, search []byte) (keyText string, err error) {
 	switch len(search) {
 	case 4, 8, 16, 20:
 		return c.PKSLookup(ctx, nil, fmt.Sprintf("%#x", search), OperationGet, false, true, nil)
 	default:
-		return "", ErrInvalidSearch
+		return "", fmt.Errorf("%w", ErrInvalidSearch)
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -7,6 +7,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,13 +18,14 @@ import (
 type MockVersion struct {
 	t        *testing.T
 	code     int
+	message  string
 	wantPath string
 	version  string
 }
 
 func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m.code != http.StatusOK {
-		if err := jsonresp.WriteError(w, "", m.code); err != nil {
+	if m.code/100 != 2 { // non-2xx status code
+		if err := jsonresp.WriteError(w, m.message, m.code); err != nil {
 			m.t.Fatalf("failed to write error: %v", err)
 		}
 		return
@@ -37,7 +39,9 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.t.Errorf("got content length %v, want %v", got, want)
 	}
 
-	vi := VersionInfo{
+	vi := struct {
+		Version string `json:"version"`
+	}{
 		Version: m.version,
 	}
 	if err := jsonresp.WriteResponse(w, vi, m.code); err != nil {
@@ -46,57 +50,90 @@ func (m *MockVersion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestGetVersion(t *testing.T) {
-	m := &MockVersion{
-		t: t,
-	}
-	s := httptest.NewServer(m)
-	defer s.Close()
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	tests := []struct {
 		name     string
-		baseURL  string
+		path     string
+		ctx      context.Context
 		code     int
+		message  string
 		wantPath string
 		version  string
+		wantErr  error
 	}{
-		{"Success", s.URL, http.StatusOK, "/version", "1.2.3"},
-		{"SuccessPath", s.URL + "/path", http.StatusOK, "/path/version", "1.2.3"},
-		{"JSONError", s.URL, http.StatusBadRequest, "", ""},
-		{"BadURL", "http://127.0.0.1:123456", 0, "", ""},
+		{
+			name:     "OK",
+			ctx:      context.Background(),
+			code:     http.StatusOK,
+			wantPath: "/version",
+			version:  "1.2.3",
+		},
+		{
+			name:     "OKWithPath",
+			path:     "/path",
+			ctx:      context.Background(),
+			code:     http.StatusOK,
+			wantPath: "/path/version",
+			version:  "1.2.3",
+		},
+		{
+			name:     "NonAuthoritativeInfo",
+			ctx:      context.Background(),
+			code:     http.StatusNonAuthoritativeInfo,
+			wantPath: "/version",
+			version:  "1.2.3",
+		},
+		{
+			name:    "HTTPError",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "HTTPErrorMessage",
+			ctx:     context.Background(),
+			code:    http.StatusBadRequest,
+			message: "blah",
+			wantErr: &HTTPError{code: http.StatusBadRequest},
+		},
+		{
+			name:    "ContextCanceled",
+			ctx:     cancelled,
+			code:    http.StatusOK,
+			wantErr: context.Canceled,
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m.code = tt.code
-			m.wantPath = tt.wantPath
-			m.version = tt.version
+			t.Parallel()
 
-			c, err := NewClient(&Config{
-				BaseURL: tt.baseURL,
+			s := httptest.NewServer(&MockVersion{
+				t:        t,
+				code:     tt.code,
+				message:  tt.message,
+				wantPath: tt.wantPath,
+				version:  tt.version,
 			})
+			defer s.Close()
+
+			c, err := NewClient(OptBaseURL(s.URL + tt.path))
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
 
-			vi, err := c.GetVersion(context.Background())
+			v, err := c.GetVersion(tt.ctx)
 
-			if tt.code == http.StatusOK {
-				if err != nil {
-					t.Fatalf("failed to get version: %v", err)
-				}
-				if got, want := vi.Version, tt.version; got != want {
+			if got, want := err, tt.wantErr; !errors.Is(got, want) {
+				t.Fatalf("got error %v, want %v", got, want)
+			}
+
+			if err == nil {
+				if got, want := v, tt.version; got != want {
 					t.Errorf("got version %v, want %v", got, want)
-				}
-			} else {
-				if err == nil {
-					t.Fatalf("unexpected success")
-				}
-				if tt.code != 0 {
-					if err, ok := err.(*jsonresp.Error); !ok {
-						t.Fatalf("failed to cast to jsonresp.Error")
-					} else if got, want := err.Code, tt.code; got != want {
-						t.Errorf("got code %v, want %v", got, want)
-					}
 				}
 			}
 		})
