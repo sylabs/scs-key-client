@@ -157,7 +157,7 @@ func NewClient(opts ...Option) (*Client, error) {
 	return &c, nil
 }
 
-// NewRequestWithContext returns a new Request given a method, ref, and optional body.
+// NewRequest returns a new Request given a method, ref, and optional body.
 //
 // The context controls the entire lifetime of a request and its response: obtaining a connection,
 // sending the request, and reading the response headers and body.
