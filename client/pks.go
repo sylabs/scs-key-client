@@ -9,7 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -137,7 +137,7 @@ func (c *Client) PKSLookup(ctx context.Context, pd *PageDetails, search, operati
 		pd.Token = res.Header.Get("X-HKP-Next-Page-Token")
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
