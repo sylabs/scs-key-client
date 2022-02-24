@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2022, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -60,7 +60,7 @@ func TestPKSAdd(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ctx     context.Context
+		ctx     context.Context //nolint:containedctx
 		keyText string
 		code    int
 		message string
@@ -246,13 +246,14 @@ func (m *MockPKSLookup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//nolint:maintidx
 func TestPKSLookup(t *testing.T) {
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	tests := []struct {
 		name          string
-		ctx           context.Context
+		ctx           context.Context //nolint:containedctx
 		code          int
 		message       string
 		search        string
@@ -548,7 +549,7 @@ func TestGetKey(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ctx     context.Context
+		ctx     context.Context //nolint:containedctx
 		code    int
 		message string
 		search  []byte
