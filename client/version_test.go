@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, Sylabs Inc. All rights reserved.
+// Copyright (c) 2019-2022, Sylabs Inc. All rights reserved.
 // This software is licensed under a 3-clause BSD license. Please consult the LICENSE.md file
 // distributed with the sources of this project regarding your rights to use or distribute this
 // software.
@@ -56,7 +56,7 @@ func TestGetVersion(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
-		ctx      context.Context
+		ctx      context.Context //nolint:containedctx
 		code     int
 		message  string
 		wantPath string
